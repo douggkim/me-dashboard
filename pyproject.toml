@@ -1,0 +1,28 @@
+[project]
+name = "doug-dashboard"
+version = "0.1.0"
+description = "Dashboard displaying information about Doug"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "adlfs>=2024.12.0",
+    "azure-identity>=1.21.0",
+    "dagster>=1.10.7",
+    "dagster-deltalake-pandas>=0.26.13",
+    "dagster-deltalake-polars>=0.26.13",
+    "dagster-duckdb>=0.26.7",
+    "dagster-duckdb-pandas>=0.26.7",
+    "dagster-duckdb-polars>=0.26.7",
+    "dagster-pandera>=0.26.7",
+    "dagster-postgres>=0.26.7",
+    "dagster-webserver>=1.10.7",
+    "deltalake>=0.25.4",
+    "furl>=2.1.4",
+    "loguru>=0.7.3",
+    "overrides>=7.7.0",
+    "pandas>=2.2.3",
+    "pandera>=0.23.1",
+    "polars>=1.26.0",
+    "ruff>=0.11.2",
+    "xlsxwriter>=3.2.2",
+]

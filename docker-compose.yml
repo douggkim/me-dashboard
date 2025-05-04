@@ -1,0 +1,49 @@
+version: '3'
+services:
+  dagsterdb:
+    image: postgres
+    container_name: dagsterdb
+    environment:
+      POSTGRES_USER: dagster
+      POSTGRES_PASSWORD: p4ssw0rd
+      POSTGRES_DB: dagster
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres/data:/var/lib/postgresql/data
+  dagster:
+    container_name: dagster
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - /app/.venv
+  doug-dashboard-azurite:
+    container_name: doug-dashboard-azurite
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./data/azureite:/data
+    healthcheck:
+            test: nc 127.0.0.1 10000 -z
+            interval: 1s
+            retries: 30
+  storage-init:
+    image: mcr.microsoft.com/azure-cli:latest
+    container_name: storage-init
+    command:
+        - /bin/sh
+        - -c
+        - |
+            az storage container create --name doug-data
+    depends_on:
+        doug-dashboard-azurite:
+            condition: service_healthy
+    environment:
+        # https://github.com/Azure/Azurite/blob/main/README.md#usage-with-azure-storage-sdks-or-tools
+        AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://doug-dashboard-azurite:10000/devstoreaccount1;QueueEndpoint=http://doug-dashboard-azurite:10001/devstoreaccount1;TableEndpoint=http://doug-dashboard-azurite:10002/devstoreaccount1;
