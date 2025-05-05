@@ -144,10 +144,8 @@ def extract_storage_account(file_path: str) -> str:
 
     Examples
     --------
-    >>> extract_storage_account("abfss://refined@storagemdp01us2prd.dfs.core.windows.net/fuelight360/cga/cga_summary/tbl_final/")
-    'storagemdp01us2prd'
-    >>> extract_storage_account("abfss://refined@storagemdp01us2dev.dfs.core.windows.net/fuelight360/mpm/data.parquet")
-    'storagemdp01us2dev'
+    >>> extract_storage_account("abfss://somecontainer@prodstorage.dfs.core.windows.net/doug-dashboard/data_name")
+    'prodstorage'
     >>> extract_storage_account("file:///local/path/to/file")
     ''
     """

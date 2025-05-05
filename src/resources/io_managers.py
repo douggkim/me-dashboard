@@ -6,8 +6,7 @@ from typing import Any
 import deltalake
 import pandas as pd
 import polars as pl
-from dagster import (ConfigurableIOManager, InputContext, MetadataValue,
-                     OutputContext)
+from dagster import ConfigurableIOManager, InputContext, MetadataValue, OutputContext
 from furl import furl
 from loguru import logger
 
@@ -140,7 +139,9 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
         # Save the DataFrame to the specified path
         path = self._get_storage_path(context)
 
-        context.log.debug(f"Dumping to Azure storage using the following storage options: {self.storage_options} and file path: {path}")
+        context.log.debug(
+            f"Dumping to Azure storage using the following storage options: {self.storage_options} and file path: {path}"
+        )
 
         is_delta = deltalake.DeltaTable.is_deltatable(table_uri=f"az://{path}", storage_options=self.storage_options)
         primary_keys = self._get_metadata_values(context=context, metadata_key="primary_keys")
@@ -169,13 +170,13 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
                 .execute()
             )
         elif partition_cols:
-            context.log.info(f"Writing to {path} - the table will be partitioned using columns: {primary_keys}")
+            context.log.info(f"Writing to {path} - the table will be partitioned using columns: {partition_cols}")
 
             obj.write_delta(
                 target=f"az://{path}",
                 mode="overwrite",
                 storage_options=self.storage_options,
-                delta_write_options={"partition_by": primary_keys, "schema_mode": "overwrite"},
+                delta_write_options={"partition_by": partition_cols, "schema_mode": "overwrite"},
             )
         else:
             context.log.warning(

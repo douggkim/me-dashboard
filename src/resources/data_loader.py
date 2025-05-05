@@ -10,8 +10,7 @@ import pyarrow.dataset as ds
 import yaml
 from pydantic import PrivateAttr
 
-from src.utils.data_loaders import (ArrowDatasetLoader, PandasDataLoader,
-                                    PolarsDataLoader)
+from src.utils.data_loaders import ArrowDatasetLoader, PandasDataLoader, PolarsDataLoader
 
 
 class DataLoaderResource(dg.ConfigurableResource):
@@ -34,7 +33,7 @@ class DataLoaderResource(dg.ConfigurableResource):
         Args:
             context (dg.InitResourceContext): _description_
         """
-        self._env = os.getenv("FUELIGHT_ENVIRONMENT", "local")
+        self._env = os.getenv("ENVIRONMENT", "local")
         self._config = self._load_config(self.config_path)
 
     def _load_config(self, config_path: str) -> dict[str, Any]:

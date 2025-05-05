@@ -1,5 +1,6 @@
 """Data Loader supporting multiple file formats (csv, parquet, DeltaTable) and outputs DataFrames/ pyarrow datasets."""
 
+import os
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
@@ -9,6 +10,7 @@ import fsspec
 import pandas as pd
 import polars as pl
 import pyarrow.dataset as ds
+import yaml
 from deltalake import DeltaTable
 from loguru import logger
 
@@ -279,3 +281,47 @@ class ArrowDatasetLoader(BaseLoader):
             return dt.to_pyarrow_dataset(**valid_kwargs)
 
         raise ValueError("Streaming mode (ds.Dataset) is only supported for Parquet or Delta formats.")
+
+
+def get_storage_path(dataset_name: str, table_name: str, config_path: str = os.getenv("FILE_PATH_CONFIG_PATH")) -> str:
+    """
+    Retrieve the storage path from the configuration using a two-layer design.
+
+    Parameters
+    ----------
+    dataset_name : str
+        The top-level dataset name (e.g., 'cga', 'mpm').
+    table_name : str
+        The specific table name (e.g., 'cga_summary').
+    config_path : str, optional
+        The path to the configuration file. Default is the value of the
+        environment variable 'FILE_PATH_CONFIG_PATH'.
+
+    Returns
+    -------
+    str
+        The resolved file path.
+
+    Raises
+    ------
+    KeyError
+        If the configuration file is malformed or if the specified dataset, table,
+        or environment is not found in the configuration.
+    """
+    with open(config_path, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    env = os.getenv("ENVIRONMENT")
+
+    if "paths" not in config:
+        raise KeyError("Malformed configuration file. Expecting `paths` top-level key.")
+
+    if dataset_name not in config["paths"]:
+        raise KeyError(f"Cannot find entries for dataset {dataset_name} in paths configuration.")
+
+    if table_name not in config["paths"][dataset_name]:
+        raise KeyError(f"Cannot find entry for table {table_name} within dataset {dataset_name}")
+
+    if env not in config["paths"][dataset_name][table_name]:
+        raise KeyError(f"Cannot find entry for environment {env} within table {dataset_name}.{table_name}")
+
+    return config["paths"][dataset_name][table_name][env]

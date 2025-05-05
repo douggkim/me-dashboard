@@ -1,0 +1,5 @@
+paths:
+  spotify:
+    raw_play_history:
+      local: "./data/testing/raw/spotify_play_history"
+      prod: ""
