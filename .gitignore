@@ -187,3 +187,5 @@ data/**
 !data/dagster/dagster.yaml
 
 old/
+
+test_notebooks/

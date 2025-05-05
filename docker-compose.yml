@@ -40,7 +40,7 @@ services:
         - /bin/sh
         - -c
         - |
-            az storage container create --name doug-data
+            az storage container create --name doug-dashboard
     depends_on:
         doug-dashboard-azurite:
             condition: service_healthy
