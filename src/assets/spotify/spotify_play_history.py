@@ -24,8 +24,9 @@ from src.utils.date import datetime_to_epoch_ms
     kinds={"python", "file", "bronze"},
     tags={"domain": "entertainment", "source": "spotify"},
     owners=["doug@randomplace.com"],
+    partitions_def=dg.DailyPartitionsDefinition(start_date="2025-05-05", end_offset=1, timezone="Etc/UTC"),
 )
-def spotify_play_history_bronze(spotify_resource: SpotifyResource) -> None:
+def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resource: SpotifyResource) -> None:
     """
     Retrieve and save recent Spotify play history as JSON files.
 
@@ -43,7 +44,12 @@ def spotify_play_history_bronze(spotify_resource: SpotifyResource) -> None:
     The JSON file is saved with the naming format:
     YYYYMMDD_HHMM_play_History.json
     """
-    target_path = get_storage_path(dataset_name="spotify", table_name="raw_play_history")
+    processed_date = context.partition_key.replace("-", "_")
+    target_base_path = furl(get_storage_path(dataset_name="spotify", table_name="raw_play_history"))
+
+    # Add the processed_date to the path
+    target_base_path.path.add(processed_date)
+
     play_history_raw = spotify_resource.call_api(
         endpoint="me/player/recently-played",
         params={
@@ -57,16 +63,17 @@ def spotify_play_history_bronze(spotify_resource: SpotifyResource) -> None:
     now = datetime.datetime.now(datetime.UTC)
     filename = now.strftime("%Y%m%d_%H%M_play_History.json")
 
-    # Use furl to build the path
-    file_path = furl(target_path)
-    file_path.path.segments.append(filename)
-    full_path = file_path.path
+    # Add the filename to the path
+    target_base_path.path.add(filename)
+
+    # Convert the furl path to string for use with Path
+    file_path_str = str(target_base_path.path)
 
     # Ensure the directory exists using Path
-    Path(str(full_path)).parent.mkdir(parents=True, exist_ok=True)
+    Path(file_path_str).parent.mkdir(parents=True, exist_ok=True)
 
     # Save the JSON file
-    with open(str(full_path), "w", encoding="utf-8") as f:
+    with open(file_path_str, "w", encoding="utf-8") as f:
         json.dump(play_history_raw, f, indent=2)
 
 
@@ -80,65 +87,93 @@ def spotify_play_history_bronze(spotify_resource: SpotifyResource) -> None:
     metadata={"partition_cols": ["played_date"], "primary_keys": ["played_date", "play_history_id"]},
     deps=["spotify_play_history_bronze"],
     owners=["doug@randomplace.com"],
+    partitions_def=dg.DailyPartitionsDefinition(start_date="2025-05-05", timezone="Etc/UTC", end_offset=1),
 )
-def spotify_play_history_silver() -> pl.DataFrame:
+def spotify_play_history_silver(context: dg.AssetExecutionContext) -> pl.DataFrame:
     """
-    Process Spotify play history data into a tabular format.
+    Process Spotify play history data into a tabular format from all JSON files in the date directory.
+
+    This asset reads all JSON files from the partition directory and transforms them
+    into a structured DataFrame with properly typed columns.
 
     Parameters
     ----------
-    history_data : Dict[str, Any]
-        Dictionary containing Spotify play history data.
+    context : dg.AssetExecutionContext
+        The execution context with partition information.
 
     Returns
     -------
     pl.DataFrame
         Processed DataFrame with extracted play history information.
+
+    Raises
+    ------
+    ValueError
+        If no file is found at the location.
     """
-    # TODO: Devise the right algorithm to load files -> Partition? Just by Date?
-    target_path = furl(get_storage_path(dataset_name="spotify", table_name="raw_play_history"))
-    raw_history_data = load_json_file(file_path=str(target_path.path.add("20250505_0511_play_History.json")))
+    processed_date = context.partition_key.replace("-", "_")
+
+    # Get the base directory for the date partition
+    target_data_path = furl(get_storage_path(dataset_name="spotify", table_name="raw_play_history"))
+    target_data_path = target_data_path.path.add(processed_date)
+    target_data_path = str(target_data_path)
+
+    # Find all JSON files in the date directory
+    json_files = list(Path(target_data_path).glob("*.json"))
+
+    if not json_files:
+        raise ValueError(f"No JSON files found in directory: {target_data_path}")
+
     processed_history_data = []
 
-    for item in raw_history_data["items"]:
-        track = item["track"]
-        album = track["album"]
-        played_at = item["played_at"]
-        song_id = track["id"]
+    for json_file in json_files:
+        raw_history_data = load_json_file(file_path=str(json_file))
 
-        # Create play_history_id by hashing played_at and song_id
-        hash_input = f"{played_at}_{song_id}"
-        play_history_id = hashlib.md5(hash_input.encode()).hexdigest()  # noqa: S324
+        # Process each item in the file
+        for item in raw_history_data.get("items", []):
+            track = item["track"]
+            album = track["album"]
+            played_at = item["played_at"]
+            song_id = track["id"]
 
-        # Convert duration from ms to seconds
-        duration_seconds = track["duration_ms"] / 1000
+            # Create play_history_id by hashing played_at and song_id
+            hash_input = f"{played_at}_{song_id}"
+            play_history_id = hashlib.md5(hash_input.encode()).hexdigest()  # noqa: S324
 
-        # Parse played_at to datetime
-        played_at_dt = datetime.datetime.fromisoformat(played_at.replace("Z", "+00:00"))
+            # Convert duration from ms to seconds
+            duration_seconds = track["duration_ms"] / 1000
 
-        # Extract date for partitioning
-        played_date = played_at_dt.date()
+            # Parse played_at to datetime
+            played_at_dt = datetime.datetime.fromisoformat(played_at)
 
-        processed_item = {
-            "play_history_id": play_history_id,
-            "played_at": played_at,
-            "played_date": played_date,
-            "duration_seconds": duration_seconds,
-            "duration_ms": track["duration_ms"],
-            "artist_names": [artist["name"] for artist in track["artists"]],
-            "song_id": song_id,
-            "song_name": track["name"],
-            "album_name": album["name"],
-            "popularity_points_by_spotify": track["popularity"],
-            "is_explicit": track["explicit"],
-            "song_release_date": album["release_date"],
-            "no_of_available_markets": len(album["available_markets"]),
-            "album_type": album["album_type"],
-            "total_tracks": album["total_tracks"],
-        }
-        processed_history_data.append(processed_item)
+            # Extract date for partitioning
+            played_date = played_at_dt.date()
 
-    # Create Polars DataFrame
+            processed_item = {
+                "play_history_id": play_history_id,
+                "played_at": played_at,
+                "played_date": played_date,
+                "duration_seconds": duration_seconds,
+                "duration_ms": track["duration_ms"],
+                "artist_names": [artist["name"] for artist in track["artists"]],
+                "song_id": song_id,
+                "song_name": track["name"],
+                "album_name": album["name"],
+                "popularity_points_by_spotify": track["popularity"],
+                "is_explicit": track["explicit"],
+                "song_release_date": album["release_date"],
+                "no_of_available_markets": len(album["available_markets"]),
+                "album_type": album["album_type"],
+                "total_tracks": album["total_tracks"],
+            }
+            processed_history_data.append(processed_item)
+
+    # If no data was processed, return an empty DataFrame with the correct schema
+    if not processed_history_data:
+        raise ValueError(
+            f"No play history data processed for files for date: {processed_date}. Please check the data quality and the schema"
+        )
+
     play_history_df = pl.from_dicts(
         processed_history_data,
         schema={
@@ -160,8 +195,14 @@ def spotify_play_history_silver() -> pl.DataFrame:
         },
     )
 
-    return play_history_df.with_columns(
-        pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S.%fZ", time_unit="ms")
+    # Add deduplication logic - keep only the first occurrence of each play_history_id
+    deduplicated_df = play_history_df.unique(subset=["play_history_id"])
+
+    if len(deduplicated_df) < len(play_history_df):
+        context.log.info(f"Removed {len(play_history_df) - len(deduplicated_df)} duplicate records")
+
+    return deduplicated_df.with_columns(
+        pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="ms")
     )
 
 
