@@ -23,6 +23,7 @@ services:
       - ./:/app
       - /app/.venv
   minio:
+    profiles: ["dev"]
     container_name: doug-dashboard-minio
     image: minio/minio
     ports:

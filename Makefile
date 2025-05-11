@@ -6,4 +6,4 @@ down:
 up: down
 	docker compose up -d --build
 dev: down
-	docker compose up --watch --build
+	docker compose up --profile dev --watch --build
