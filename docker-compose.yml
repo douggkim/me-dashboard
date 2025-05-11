@@ -22,28 +22,42 @@ services:
     volumes:
       - ./:/app
       - /app/.venv
-  doug-dashboard-azurite:
-    container_name: doug-dashboard-azurite
-    image: mcr.microsoft.com/azure-storage/azurite
+  minio:
+    container_name: doug-dashboard-minio
+    image: minio/minio
     ports:
-      - "10000:10000"
+      - "9000:9000"  # API port
+      - "9001:9001"  # Console port
     volumes:
-      - ./data/azureite:/data
+      - ./data/minio:/data
+    env_file:
+      - .env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        # Start Minio server in the background
+        minio server /data --console-address ":9001" &
+        
+        # Wait for Minio to be ready (same as your healthcheck)
+        echo "Waiting for Minio to start..."
+        until curl --silent --fail http://localhost:9000/minio/health/live; do
+          echo "Waiting for Minio to be ready..."
+          sleep 1
+        done
+        echo "Minio is up and running!"
+        
+        # Create the me-dashboard bucket if it doesn't exist
+        echo "Setting up Minio client..."
+        mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+        echo "Creating me-dashboard bucket (if it doesn't exist)..."
+        mc mb local/me-dashboard --ignore-existing
+        echo "Bucket setup complete!"
+        
+        # Keep the container running by waiting for the background process
+        wait
     healthcheck:
-            test: nc 127.0.0.1 10000 -z
-            interval: 1s
-            retries: 30
-  storage-init:
-    image: mcr.microsoft.com/azure-cli:latest
-    container_name: storage-init
-    command:
-        - /bin/sh
-        - -c
-        - |
-            az storage container create --name doug-dashboard
-    depends_on:
-        doug-dashboard-azurite:
-            condition: service_healthy
-    environment:
-        # https://github.com/Azure/Azurite/blob/main/README.md#usage-with-azure-storage-sdks-or-tools
-        AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://doug-dashboard-azurite:10000/devstoreaccount1;QueueEndpoint=http://doug-dashboard-azurite:10001/devstoreaccount1;TableEndpoint=http://doug-dashboard-azurite:10002/devstoreaccount1;
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 3

@@ -14,7 +14,7 @@ import yaml
 from deltalake import DeltaTable
 from loguru import logger
 
-from src.utils.azure import AzureCredentialFormat, get_azure_storage_options
+from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 from src.utils.global_helpers import filter_kwargs
 
 
@@ -70,19 +70,17 @@ class BaseLoader(ABC):
         None
         """
         lowercase_file_path = file_path.lower()
-        storage_options = get_azure_storage_options(
-            file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_STRINGS
-        )
+        storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.CREDENTIAL_STRINGS)
 
         # For validating whether the path is DeltaTable
-        if DeltaTable.is_deltatable(table_uri=file_path, storage_options=storage_options):
-            input_data_format = FileFormat.DELTA
-
-        elif lowercase_file_path.endswith(".csv"):
+        if lowercase_file_path.endswith(".csv"):
             input_data_format = FileFormat.CSV
 
         elif lowercase_file_path.endswith(".parquet"):
             input_data_format = FileFormat.PARQUET
+
+        elif DeltaTable.is_deltatable(table_uri=file_path, storage_options=storage_options):
+            input_data_format = FileFormat.DELTA
 
         else:
             input_data_format = FileFormat.UNKNOWN
@@ -123,9 +121,7 @@ class PandasDataLoader(BaseLoader):
             valid_kwargs = filter_kwargs(pd.read_csv, kwargs)
             return pd.read_csv(
                 filepath_or_buffer=file_path,
-                storage_options=get_azure_storage_options(
-                    file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_OBJECT
-                ),
+                storage_options=get_aws_storage_options(return_credential_type=AWSCredentialFormat.UTILIZE_ENV_VARS),
                 **valid_kwargs,
             )
 
@@ -133,16 +129,12 @@ class PandasDataLoader(BaseLoader):
             valid_kwargs = filter_kwargs(pd.read_parquet, kwargs)
             return pd.read_parquet(
                 path=file_path,
-                storage_options=get_azure_storage_options(
-                    file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_OBJECT
-                ),
+                storage_options=get_aws_storage_options(return_credential_type=AWSCredentialFormat.UTILIZE_ENV_VARS),
                 **valid_kwargs,
             )
 
         if input_format == FileFormat.DELTA:
-            storage_options = get_azure_storage_options(
-                file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_STRINGS
-            )
+            storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.CREDENTIAL_STRINGS)
             dt = DeltaTable(
                 table_uri=file_path,
                 storage_options=storage_options,
@@ -198,9 +190,7 @@ class PolarsDataLoader(BaseLoader):
         """
         input_format = self._infer_data_format(file_path=file_path)
 
-        storage_options = get_azure_storage_options(
-            file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_STRINGS
-        )
+        storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.CREDENTIAL_STRINGS)
 
         # For parquet and delta, set pyarrow_options if not provided.
         if input_format in {FileFormat.PARQUET, FileFormat.DELTA}:
@@ -261,9 +251,7 @@ class ArrowDatasetLoader(BaseLoader):
 
         if input_format == FileFormat.PARQUET:
             parsed = urlparse(file_path)
-            storage_options = get_azure_storage_options(
-                file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_OBJECT
-            )
+            storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.UTILIZE_ENV_VARS)
             fs = (
                 fsspec.filesystem("file")
                 if parsed.scheme in {"", "file"}
@@ -273,9 +261,7 @@ class ArrowDatasetLoader(BaseLoader):
             return ds.dataset(source=file_path, filesystem=fs, format="parquet", **valid_kwargs)
 
         if input_format == FileFormat.DELTA:
-            storage_options = get_azure_storage_options(
-                file_path=file_path, return_credential_type=AzureCredentialFormat.CREDENTIAL_STRINGS
-            )
+            storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.CREDENTIAL_STRINGS)
             dt = DeltaTable(table_uri=file_path, storage_options=storage_options)
             valid_kwargs = filter_kwargs(dt.to_pyarrow_dataset, kwargs)
             return dt.to_pyarrow_dataset(**valid_kwargs)
