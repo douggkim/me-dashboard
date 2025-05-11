@@ -7,7 +7,7 @@ import dagster as dg
 import src.assets as assets_module
 import src.validation.asset_checks as asset_checks_module
 from src.resources.data_loader import DataLoaderResource
-from src.resources.io_managers import PandasDeltaIOManager, PolarsDeltaIOManager
+from src.resources.io_managers import JSONTextIOManager, PandasDeltaIOManager, PolarsDeltaIOManager
 from src.resources.spotify_resource import SpotifyResource
 from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 
@@ -21,6 +21,10 @@ defs = dg.Definitions(
         "io_manager": PandasDeltaIOManager(
             output_base_path=os.getenv("OUTPUT_BASE_PATH"),
             storage_options=get_aws_storage_options(return_credential_type=AWSCredentialFormat.CREDENTIAL_STRINGS),
+        ),
+        "io_manager_json_txt": JSONTextIOManager(
+            output_base_path=os.getenv("OUTPUT_BASE_PATH"),
+            storage_options=get_aws_storage_options(return_credential_type=AWSCredentialFormat.UTILIZE_ENV_VARS),
         ),
         "data_loader": DataLoaderResource(config_path=os.getenv("FILE_PATH_CONFIG_PATH")),
         "spotify_resource": SpotifyResource(
