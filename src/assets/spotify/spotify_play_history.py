@@ -55,7 +55,7 @@ def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resou
     return spotify_resource.call_api(
         endpoint="me/player/recently-played",
         params={
-            "after": datetime_to_epoch_ms(datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=3)),
+            "after": datetime_to_epoch_ms(datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=6)),
             "offset": 0,
             "limit": 50,
         },
@@ -96,15 +96,26 @@ def spotify_play_history_silver(
     -------
     pl.DataFrame
         Processed DataFrame with extracted play history information.
-
-    Raises
-    ------
-    ValueError
-        If no file is found at the location.
+        Returns None if there's no recent play history.
     """
-    processed_date = context.partition_key
-
     processed_history_data = []
+    schema = {
+        "play_history_id": pl.Utf8,
+        "played_at": pl.Utf8,
+        "played_date": pl.Date,
+        "duration_seconds": pl.Float64,
+        "duration_ms": pl.Int64,
+        "artist_names": pl.List(pl.Utf8),
+        "song_id": pl.Utf8,
+        "song_name": pl.Utf8,
+        "album_name": pl.Utf8,
+        "popularity_points_by_spotify": pl.Int64,
+        "is_explicit": pl.Boolean,
+        "song_release_date": pl.Utf8,
+        "no_of_available_markets": pl.Int64,
+        "album_type": pl.Utf8,
+        "total_tracks": pl.Int64,
+    }
 
     for json_dict in spotify_play_history_bronze:
         # Process each item in the file
@@ -147,30 +158,12 @@ def spotify_play_history_silver(
             processed_history_data.append(processed_item)
 
     if not processed_history_data:
-        raise ValueError(
-            f"No play history data processed for files for date: {processed_date}."
-            "Please check the data quality and the schema"
-        )
+        context.log.warning("No additional play history found. Will be returning an empty dataframe")
+        return pl.DataFrame(schema=schema)
 
     play_history_df = pl.from_dicts(
         processed_history_data,
-        schema={
-            "play_history_id": pl.Utf8,
-            "played_at": pl.Utf8,
-            "played_date": pl.Date,
-            "duration_seconds": pl.Float64,
-            "duration_ms": pl.Int64,
-            "artist_names": pl.List(pl.Utf8),
-            "song_id": pl.Utf8,
-            "song_name": pl.Utf8,
-            "album_name": pl.Utf8,
-            "popularity_points_by_spotify": pl.Int64,
-            "is_explicit": pl.Boolean,
-            "song_release_date": pl.Utf8,
-            "no_of_available_markets": pl.Int64,
-            "album_type": pl.Utf8,
-            "total_tracks": pl.Int64,
-        },
+        schema=schema,
     )
 
     # Add deduplication logic - keep only the first occurrence of each play_history_id
