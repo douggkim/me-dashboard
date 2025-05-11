@@ -4,6 +4,7 @@ import os
 from enum import Enum, auto
 from typing import Any
 from urllib.parse import urlparse
+import dagster as dg 
 
 import boto3
 from loguru import logger
@@ -51,11 +52,11 @@ def get_aws_storage_options(return_credential_type: AWSCredentialFormat) -> dict
         - if provided with wrong authentication type
     """
     # Get credentials from environment variables
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    region = os.getenv("AWS_REGION", "us-east-1")
+    access_key = dg.EnvVar("AWS_ACCESS_KEY_ID").get_value()
+    secret_key = dg.EnvVar("AWS_SECRET_ACCESS_KEY").get_value()
+    region = dg.EnvVar("AWS_REGION").get_value()
 
-    endpoint_url = os.getenv("AWS_S3_ENDPOINT")
+    endpoint_url = dg.EnvVar("AWS_S3_ENDPOINT").get_value()
 
     storage_options = {}
     # Get S3 endpoint - defaults differ based on emulator mode
@@ -83,7 +84,8 @@ def get_aws_storage_options(return_credential_type: AWSCredentialFormat) -> dict
     if return_credential_type == AWSCredentialFormat.CREDENTIAL_STRINGS:
         storage_options["aws_access_key_id"] = access_key
         storage_options["secret_access_key"] = secret_key
-        storage_options["endpoint_url"] = endpoint_url
+        if os.getenv("ENVIRONMENT") != "prod":
+            storage_options["endpoint_url"] = endpoint_url
         storage_options["region"] = region
         storage_options["AWS_ALLOW_HTTP"] = "true"
         return storage_options
@@ -124,4 +126,4 @@ def extract_bucket_name(file_path: str) -> str:
         return parsed.netloc
 
     # Return environment bucket if no bucket in path
-    return os.getenv("AWS_S3_BUCKET_NAME", "")
+    return dg.EnvVar("AWS_S3_BUCKET_NAME").get_value()

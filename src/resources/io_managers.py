@@ -143,11 +143,7 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
 
         # Save the DataFrame to the specified path
         path = self._get_storage_path(context)
-
-        context.log.debug(
-            f"Dumping to AWS S3 storage using the following storage options: {self.storage_options} and file path: {path}"
-        )
-
+        
         is_delta = deltalake.DeltaTable.is_deltatable(table_uri=f"{path}", storage_options=self.storage_options)
         primary_keys = self._get_metadata_values(context=context, metadata_key="primary_keys")
         partition_cols = self._get_metadata_values(context=context, metadata_key="partition_cols")
