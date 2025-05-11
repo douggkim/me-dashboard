@@ -20,7 +20,7 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
     Attributes
     ----------
     storage_options : dict
-        A dictionary of connection options used to connect to Azure Blob Storage.
+        A dictionary of connection options used to connect to AWS S3 Storage.
     """
 
     storage_options: dict = dict()  # noqa: RUF012
@@ -106,7 +106,7 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
         return str(output_base_path)
 
     def handle_output(self, context: OutputContext, obj: pl.LazyFrame | pl.DataFrame | pd.DataFrame) -> None:
-        """Write a DataFrame to a specified path in Azure storage as a Delta Table.
+        """Write a DataFrame to a specified path in AWS S3 storage as a Delta Table.
 
         Parameters
         ----------
@@ -140,22 +140,22 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
         path = self._get_storage_path(context)
 
         context.log.debug(
-            f"Dumping to Azure storage using the following storage options: {self.storage_options} and file path: {path}"
+            f"Dumping to AWS S3 storage using the following storage options: {self.storage_options} and file path: {path}"
         )
 
-        is_delta = deltalake.DeltaTable.is_deltatable(table_uri=f"az://{path}", storage_options=self.storage_options)
+        is_delta = deltalake.DeltaTable.is_deltatable(table_uri=f"s3://{path}", storage_options=self.storage_options)
         primary_keys = self._get_metadata_values(context=context, metadata_key="primary_keys")
         partition_cols = self._get_metadata_values(context=context, metadata_key="partition_cols")
 
         if is_delta and primary_keys:
             merge_predicate = self._get_merge_predicates(primary_keys=primary_keys)
 
-            context.log.info(f"Table at az://{path} exists, performing merge operation using columns:{primary_keys}")
+            context.log.info(f"Table at s3://{path} exists, performing merge operation using columns:{primary_keys}")
             logger.info(f"Generated merge predicate for TABLE MERGE: {merge_predicate}")
 
             (
                 obj.write_delta(
-                    f"az://{path}",
+                    f"s3://{path}",
                     mode="merge",
                     delta_merge_options={
                         "predicate": merge_predicate,
@@ -173,7 +173,7 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
             context.log.info(f"Writing to {path} - the table will be partitioned using columns: {partition_cols}")
 
             obj.write_delta(
-                target=f"az://{path}",
+                target=f"s3://{path}",
                 mode="overwrite",
                 storage_options=self.storage_options,
                 delta_write_options={"partition_by": partition_cols, "schema_mode": "overwrite"},
@@ -183,7 +183,7 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
                 f"Writing to {path} - No partition keys have been set. The table will be fully overwritten"
             )
             obj.write_delta(
-                target=f"az://{path}",
+                target=f"s3://{path}",
                 mode="overwrite",
                 storage_options=self.storage_options,
                 delta_write_options={"schema_mode": "overwrite"},
@@ -210,7 +210,7 @@ class PandasDeltaIOManager(GenericInputDeltaIOManager):
 
         return (
             pl.scan_delta(
-                f"az://{path}",
+                f"s3://{path}",
                 storage_options=self.storage_options,
             )
             .collect()
@@ -236,7 +236,7 @@ class PolarsLazyDeltaIOManager(GenericInputDeltaIOManager):
         """
         path = self._get_storage_path(context)
         return pl.scan_delta(
-            f"az://{path}",
+            f"s3://{path}",
             storage_options=self.storage_options,
         )
 
@@ -259,6 +259,6 @@ class PolarsDeltaIOManager(GenericInputDeltaIOManager):
         """
         path = self._get_storage_path(context)
         return pl.scan_delta(
-            f"az://{path}",
+            f"s3://{path}",
             storage_options=self.storage_options,
         ).collect()

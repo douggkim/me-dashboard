@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "adlfs>=2024.12.0",
     "azure-identity>=1.21.0",
+    "boto3>=1.38.13",
     "dagster>=1.10.7",
     "dagster-deltalake-pandas>=0.26.13",
     "dagster-deltalake-polars>=0.26.13",
@@ -24,5 +25,6 @@ dependencies = [
     "pandera>=0.23.1",
     "polars>=1.26.0",
     "ruff>=0.11.2",
+    "s3fs>=0.4.2",
     "xlsxwriter>=3.2.2",
 ]
