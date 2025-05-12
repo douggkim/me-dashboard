@@ -6,6 +6,12 @@ import dagster as dg
 
 import src.assets as assets_module
 import src.validation.asset_checks as asset_checks_module
+from src.jobs.spotify_play_history_jobs import (
+    spotify_play_history_bronze_job,
+    spotify_play_history_bronze_schedule,
+    spotify_play_history_silver_job,
+    spotify_play_history_silver_schedule,
+)
 from src.resources.data_loader import DataLoaderResource
 from src.resources.io_managers import JSONTextIOManager, PandasDeltaIOManager, PolarsDeltaIOManager
 from src.resources.spotify_resource import SpotifyResource
@@ -34,5 +40,6 @@ defs = dg.Definitions(
         ),
     },
     asset_checks=dg.load_asset_checks_from_package_module(asset_checks_module),
-    jobs=[],
+    jobs=[spotify_play_history_silver_job, spotify_play_history_bronze_job],
+    schedules=[spotify_play_history_bronze_schedule, spotify_play_history_silver_schedule],
 )

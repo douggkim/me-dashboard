@@ -1,4 +1,6 @@
 version: '3'
+x-project-labels: &project-labels
+  project: "me-dashboard"
 services:
   dagsterdb:
     image: postgres
@@ -11,6 +13,8 @@ services:
       - "5432:5432"
     volumes:
       - ./data/postgres/data:/var/lib/postgresql/data
+    labels:
+      <<: *project-labels
   dagster:
     container_name: dagster
     build:
@@ -22,6 +26,8 @@ services:
     volumes:
       - ./:/app
       - /app/.venv
+    labels:
+      <<: *project-labels
   minio:
     profiles: ["dev"]
     container_name: doug-dashboard-minio
@@ -62,3 +68,5 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
+    labels:
+      <<: *project-labels
