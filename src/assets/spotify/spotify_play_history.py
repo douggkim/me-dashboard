@@ -22,6 +22,7 @@ from src.utils.date import datetime_to_epoch_ms
     tags={"domain": "entertainment", "source": "spotify"},
     owners=["doug@randomplace.com"],
     partitions_def=dg.DailyPartitionsDefinition(start_date="2025-05-05", end_offset=1, timezone="Etc/UTC"),
+    automation_condition=dg.AutomationCondition.on_cron("0 */3 * * *"),  # Run every 3 hours
 )
 def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resource: SpotifyResource) -> dict:
     """
@@ -77,6 +78,7 @@ def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resou
     },
     owners=["doug@randomplace.com"],
     partitions_def=dg.DailyPartitionsDefinition(start_date="2025-05-05", timezone="Etc/UTC", end_offset=1),
+    automation_condition=dg.AutomationCondition.on_cron("0 */12 * * *"),  # Run every 12 hours
 )
 def spotify_play_history_silver(
     context: dg.AssetExecutionContext, spotify_play_history_bronze: list[dict]
