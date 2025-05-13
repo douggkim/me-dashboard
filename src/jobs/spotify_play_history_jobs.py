@@ -17,7 +17,9 @@ spotify_play_history_silver_job = dg.define_asset_job(
 )
 
 
-@dg.schedule(job=spotify_play_history_bronze_job, cron_schedule="0 */3 * * *")
+@dg.schedule(
+    job=spotify_play_history_bronze_job, default_status=dg.DefaultScheduleStatus.RUNNING, cron_schedule="0 */3 * * *"
+)
 def spotify_play_history_bronze_schedule(context: dg.ScheduleEvaluationContext) -> dg.RunRequest:
     """Schedule for materializing spotify_play_history_bronze asset every 3 hours.
 
@@ -38,7 +40,9 @@ def spotify_play_history_bronze_schedule(context: dg.ScheduleEvaluationContext) 
     return dg.RunRequest(partition_key=scheduled_date)
 
 
-@dg.schedule(job=spotify_play_history_silver_job, cron_schedule="0 0,12 * * *")
+@dg.schedule(
+    job=spotify_play_history_silver_job, default_status=dg.DefaultScheduleStatus.RUNNING, cron_schedule="0 0,12 * * *"
+)
 def spotify_play_history_silver_schedule(context: dg.ScheduleEvaluationContext) -> dg.RunRequest:
     """Schedule for materializing spotify_play_history_silver asset twice daily.
 
