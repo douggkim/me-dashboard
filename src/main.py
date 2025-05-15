@@ -8,6 +8,7 @@ import src.assets as assets_module
 import src.validation.asset_checks as asset_checks_module
 from src.resources.data_loader import DataLoaderResource
 from src.resources.io_managers import JSONTextIOManager, PandasDeltaIOManager, PolarsDeltaIOManager
+from src.resources.psn_resource import PSNResource
 from src.resources.spotify_resource import SpotifyResource
 from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 
@@ -32,6 +33,7 @@ defs = dg.Definitions(
             client_secret=dg.EnvVar("SPOTIFY_CLIENT_SECRET"),
             refresh_token=dg.EnvVar("SPOTIFY_REFRESH_TOKEN"),
         ),
+        "psn_resource": PSNResource(refresh_token=dg.EnvVar("PSN_REFRESH_TOKEN")),
     },
     asset_checks=dg.load_asset_checks_from_package_module(asset_checks_module),
 )

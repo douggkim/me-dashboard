@@ -24,6 +24,7 @@ dependencies = [
     "pandas>=2.2.3",
     "pandera>=0.23.1",
     "polars>=1.26.0",
+    "psnawp-api>=2.1.0",
     "ruff>=0.11.2",
     "s3fs>=0.4.2",
     "xlsxwriter>=3.2.2",
