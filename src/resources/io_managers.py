@@ -15,6 +15,8 @@ from dagster import ConfigurableIOManager, InputContext, MetadataValue, OutputCo
 from furl import furl
 from loguru import logger
 
+from src.utils.encoder import CustomerJSONEncoder
+
 
 class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
     """A generic input IOManager that provides a standard implementation for writing data as a Delta Table.
@@ -143,7 +145,7 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
 
         # Save the DataFrame to the specified path
         path = self._get_storage_path(context)
-        
+
         is_delta = deltalake.DeltaTable.is_deltatable(table_uri=f"{path}", storage_options=self.storage_options)
         primary_keys = self._get_metadata_values(context=context, metadata_key="primary_keys")
         partition_cols = self._get_metadata_values(context=context, metadata_key="partition_cols")
@@ -375,7 +377,7 @@ class JSONTextIOManager(GenericJSONIOManager):
     working with any storage system supported by fsspec.
     """
 
-    def handle_output(self, context: OutputContext, obj: dict | pl.DataFrame | pd.DataFrame) -> None:
+    def handle_output(self, context: OutputContext, obj: dict | pl.DataFrame | pd.DataFrame | list[dict]) -> None:
         """
         Write output data to the appropriate location.
 
@@ -383,7 +385,7 @@ class JSONTextIOManager(GenericJSONIOManager):
         ----------
         context : OutputContext
             The Dagster context for the output operation
-        obj : Union[dict, pl.DataFrame, pd.DataFrame]
+        obj : dict | pl.DataFrame | pd.DataFrame | list[dict]
             The data to write, either a JSON-serializable dict or a DataFrame
 
         Raises
@@ -402,14 +404,14 @@ class JSONTextIOManager(GenericJSONIOManager):
         string_date = now.strftime("%Y%m%d_%H%M")
 
         # Handle different object types
-        if isinstance(obj, dict):
+        if isinstance(obj, (dict, list)):
             # Use current timestamp for filename
             file_name = f"{string_date}.json"
             file_path = f"{directory_path}/{file_name}"
 
             # Save JSON data
             with fs.open(file_path, "w") as f:
-                json.dump(obj, f, indent=2)
+                json.dump(obj, f, indent=2, cls=CustomerJSONEncoder)
 
             context.add_output_metadata({
                 "file_path": MetadataValue.text(file_path),
@@ -432,7 +434,7 @@ class JSONTextIOManager(GenericJSONIOManager):
             })
 
         else:
-            raise TypeError("Unsupported object type. Must be a dict or string.")
+            raise TypeError("Unsupported object type. Must be a dict, list[dict] or string.")
 
     def load_input(self, context: InputContext) -> list[dict | str]:
         """
@@ -476,7 +478,12 @@ class JSONTextIOManager(GenericJSONIOManager):
 
             if file_extension == ".json":
                 with fs.open(file_path, "r") as f:
-                    result.append(json.load(f))
+                    content = json.load(f)
+                    # If the loaded content is already a list, extend rather than append
+                    if isinstance(content, list):
+                        result.extend(content)  # Use extend to flatten the list
+                    else:
+                        result.append(content)
                     context.log.debug(f"Loaded JSON file: {file_path}")
             elif file_extension == ".txt":
                 with fs.open(file_path, "r") as f:
