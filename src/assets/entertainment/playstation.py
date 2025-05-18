@@ -120,7 +120,7 @@ def psn_game_details_bronze(psn_title_stats_bronze: list[dict], psn_resource: PS
     name="psn_game_play_history_silver",
     key_prefix=["entertainment", "PSN"],
     io_manager_key="io_manager_pl",
-    description="PSN Game play history data processed into a tabular format",
+    description="PSN Game play history data processed into a tabular format while joining with game details",
     group_name="entertainment",
     kinds={"polars", "silver"},
     tags={"domain": "entertainment", "source": "psn"},
