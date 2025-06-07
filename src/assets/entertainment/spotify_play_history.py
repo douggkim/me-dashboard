@@ -14,7 +14,7 @@ from src.utils.date import datetime_to_epoch_ms
 
 @dg.asset(
     name="spotify_play_history_bronze",
-    key_prefix=["entertainment", "spotify"],
+    key_prefix=["bronze", "entertainment", "spotify"],
     io_manager_key="io_manager_json_txt",
     description="Raw Json files retrieved from requesting Spotify recent-history API",
     group_name="entertainment",
@@ -65,7 +65,7 @@ def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resou
 
 @dg.asset(
     name="spotify_play_history_silver",
-    key_prefix=["entertainment", "spotify"],
+    key_prefix=["silver", "entertainment", "spotify"],
     description="Processed version of the Spotify Playhistory",
     group_name="entertainment",
     kinds={"polars", "silver"},
@@ -73,7 +73,7 @@ def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resou
     metadata={"partition_cols": ["played_date"], "primary_keys": ["played_date", "play_history_id"]},
     ins={
         "spotify_play_history_bronze": dg.AssetIn(
-            key_prefix=["entertainment", "spotify"], input_manager_key="io_manager_json_txt"
+            key_prefix=["bronze", "entertainment", "spotify"], input_manager_key="io_manager_json_txt"
         )
     },
     owners=["doug@randomplace.com"],

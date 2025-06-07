@@ -6,6 +6,7 @@ import dagster as dg
 
 import src.assets as assets_module
 import src.validation.asset_checks as asset_checks_module
+from src.jobs.delta_optimization import delta_maintenance
 from src.resources.data_loader import DataLoaderResource
 from src.resources.io_managers import JSONTextIOManager, PandasDeltaIOManager, PolarsDeltaIOManager
 from src.resources.psn_resource import PSNResource
@@ -35,5 +36,6 @@ defs = dg.Definitions(
         ),
         "psn_resource": PSNResource(refresh_token=dg.EnvVar("PSN_REFRESH_TOKEN")),
     },
+    jobs=[delta_maintenance],
     asset_checks=dg.load_asset_checks_from_package_module(asset_checks_module),
 )
