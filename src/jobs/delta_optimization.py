@@ -46,7 +46,7 @@ class DeltaMaintenanceConfig(dg.Config):
     )
 
 
-@dg.op(out=dg.Out(io_manager_key="mem_io_manager"))
+@dg.op(name="build_maintenance_config", out=dg.Out(io_manager_key="mem_io_manager"))
 def build_maintenance_config(target_table_paths: list[str]) -> DeltaMaintenanceConfig:
     """Build Delta maintenance configuration with discovered table paths.
 
@@ -201,7 +201,7 @@ def get_maintenance_taget_tables(context: dg.OpExecutionContext) -> list[str]:
     return target_table_paths
 
 
-@dg.op(out=dg.Out(io_manager_key="mem_io_manager"))
+@dg.op(name="optimize_delta_tables", out=dg.Out(io_manager_key="mem_io_manager"))
 def optimize_delta_tables(context: dg.OpExecutionContext, maintenance_config: DeltaMaintenanceConfig) -> None:
     """Optimize Delta tables by compacting small files.
 
@@ -252,7 +252,7 @@ def optimize_delta_tables(context: dg.OpExecutionContext, maintenance_config: De
     context.add_output_metadata(metadata_log)
 
 
-@dg.op(out=dg.Out(io_manager_key="mem_io_manager"))
+@dg.op(name="vacuum_delta_tables", out=dg.Out(io_manager_key="mem_io_manager"))
 def vacuum_delta_tables(context: dg.OpExecutionContext, maintenance_config: DeltaMaintenanceConfig) -> None:
     """Remove old data files from Delta tables to reclaim storage space.
 
@@ -343,3 +343,9 @@ def delta_maintenance() -> None:
 
     optimize_delta_tables(maintenance_config=maintenance_config)
     vacuum_delta_tables(maintenance_config=maintenance_config)
+
+
+weekly_delta_maintenance_schedule = dg.ScheduleDefinition(
+    job=delta_maintenance,
+    cron_schedule="0 3 * * 0",  # Runs everyweek, sunday 03:00 AM
+)
