@@ -17,6 +17,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      #TODO: remove later
+      - name: Verify working directory and navigate if needed
+        run: |
+          echo "Initial working directory: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          
+          # If we're not in the right place, navigate to the workspace
+          if [ "$(pwd)" != "$GITHUB_WORKSPACE" ]; then
+            echo "Not in GITHUB_WORKSPACE, changing directory..."
+            cd $GITHUB_WORKSPACE
+            echo "New working directory: $(pwd)"
+          fi
+          
+          # Verify we can see our expected files
+          if [ ! -d "lambda_code" ]; then
+            echo "lambda_code directory not found, checking parent directories..."
+            # Sometimes we might be in a subdirectory, let's look around
+            find .. -name "lambda_code" -type d 2>/dev/null || echo "lambda_code not found in parent dirs either"
+          fi
+        with:
+          fetch-depth: 2  # Need previous commit to detect changes
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
