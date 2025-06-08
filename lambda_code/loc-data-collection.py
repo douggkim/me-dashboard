@@ -63,7 +63,7 @@ def _authenticate_request(headers: dict[str, str]) -> dict[str, any] | None:
     expected_token = os.getenv("OVERLAND_TOKEN")
 
     if token != expected_token:
-        logger.warning(f"Invalid token received: {token}")
+        logger.warning("Invalid token received")
         return {
             "statusCode": 401,
             "headers": {
@@ -71,7 +71,6 @@ def _authenticate_request(headers: dict[str, str]) -> dict[str, any] | None:
             },
             "body": json.dumps({
                 "error": "Invalid token",
-                "received_token": token,  # Remove this in production!
             }),
         }
 

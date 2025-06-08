@@ -1,9 +1,10 @@
 name: Deploy Lambda Codes
 
 on:
-  push: #TODO: uncomment later
-    # branches: [main]
-    # paths: ['lambda_code/gps-bronze.py']  # Fixed path
+  push: 
+    branches: [main]
+    paths: ['lambda_code/loc-data-collection.py']
+  workflow_dispatch:  # ← Manual trigger added
 
 env:
   AWS_REGION: us-west-1
@@ -17,27 +18,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      #TODO: remove later
-      - name: Verify working directory and navigate if needed
-        run: |
-          echo "Initial working directory: $(pwd)"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "current folder structure: $(ls -ltra)"
-          
-          # If we're not in the right place, navigate to the workspace
-          if [ "$(pwd)" != "$GITHUB_WORKSPACE" ]; then
-            echo "Not in GITHUB_WORKSPACE, changing directory..."
-            cd $GITHUB_WORKSPACE
-            echo "New working directory: $(pwd)"
-          fi
-          
-          # Verify we can see our expected files
-          if [ ! -d "lambda_code" ]; then
-            echo "lambda_code directory not found, checking parent directories..."
-            # Sometimes we might be in a subdirectory, let's look around
-            find .. -name "lambda_code" -type d 2>/dev/null || echo "lambda_code not found in parent dirs either"
-          fi
-      
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y_%m_%d')" >> $GITHUB_OUTPUT
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -48,19 +33,19 @@ jobs:
       - name: Package Lambda function
         run: |
           # Create deployment package (no dependencies needed)
-          zip ${{ env.LAMBDA_FUNCTION_NAME }}-${{ github.sha }}.zip lambda_code/${{ env.LAMBDA_FUNCTION_NAME }}.py
+          zip ${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip lambda_code/${{ env.LAMBDA_FUNCTION_NAME }}.py
       
       - name: Upload package to S3
         run: |
-          aws s3 cp ${{ env.LAMBDA_FUNCTION_NAME }}-${{ github.sha }}.zip \
-            s3://${{ env.S3_BUCKET }}/${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ github.sha }}.zip
+          aws s3 cp ${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip \
+            s3://${{ env.S3_BUCKET }}/${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip
       
       - name: Update Lambda function code
         run: |
           aws lambda update-function-code \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --s3-bucket ${{ env.S3_BUCKET }} \
-            --s3-key ${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ github.sha }}.zip
+            --s3-key ${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip
       
       - name: Wait for update to complete
         run: |
@@ -70,6 +55,7 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Deployment completed successfully!"
+          echo "Package name: ${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip"
           aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --query 'Configuration.[FunctionName,LastModified,CodeSha256]' \
             --output table
