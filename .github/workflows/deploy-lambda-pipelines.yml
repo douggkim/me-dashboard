@@ -4,7 +4,7 @@ on:
   push: 
     branches: [main]
     paths: ['lambda_code/loc-data-collection.py']
-  workflow_dispatch:  # ← Manual trigger added
+  workflow_dispatch:  
 
 env:
   AWS_REGION: us-west-1
