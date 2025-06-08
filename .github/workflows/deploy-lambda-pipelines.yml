@@ -22,6 +22,7 @@ jobs:
         run: |
           echo "Initial working directory: $(pwd)"
           echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "current folder structure: $(ls -ltra)"
           
           # If we're not in the right place, navigate to the workspace
           if [ "$(pwd)" != "$GITHUB_WORKSPACE" ]; then
