@@ -1,0 +1,61 @@
+name: Deploy Lambda Codes
+
+on:
+  push: 
+    branches: [main]
+    paths: ['lambda_code/loc-data-collection.py']
+  workflow_dispatch:  
+
+env:
+  AWS_REGION: us-west-1
+  LAMBDA_FUNCTION_NAME: loc-data-collection
+  S3_BUCKET: doug-dashboard-lambdas
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y_%m_%d')" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Package Lambda function
+        run: |
+          # Create deployment package (no dependencies needed)
+          zip ${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip lambda_code/${{ env.LAMBDA_FUNCTION_NAME }}.py
+      
+      - name: Upload package to S3
+        run: |
+          aws s3 cp ${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip \
+            s3://${{ env.S3_BUCKET }}/${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip
+      
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --s3-bucket ${{ env.S3_BUCKET }} \
+            --s3-key ${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip
+      
+      - name: Wait for update to complete
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
+      
+      - name: Verify deployment
+        run: |
+          echo "Deployment completed successfully!"
+          echo "Package name: ${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip"
+          aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --query 'Configuration.[FunctionName,LastModified,CodeSha256]' \
+            --output table
