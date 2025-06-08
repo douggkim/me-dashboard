@@ -45,6 +45,7 @@ jobs:
           aws lambda update-function-code \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --s3-bucket ${{ env.S3_BUCKET }} \
+            --handler lambda_code.${{LAMBDA_FUNCTION_NAME}}.lambda_handler \
             --s3-key ${{ env.LAMBDA_FUNCTION_NAME }}/${{ env.LAMBDA_FUNCTION_NAME }}-${{ steps.date.outputs.date }}-${{ github.sha }}.zip
       
       - name: Wait for update to complete
