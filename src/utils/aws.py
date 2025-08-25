@@ -4,9 +4,9 @@ import os
 from enum import Enum, auto
 from typing import Any
 from urllib.parse import urlparse
-import dagster as dg 
 
 import boto3
+import dagster as dg
 from loguru import logger
 
 

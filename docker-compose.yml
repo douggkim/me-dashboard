@@ -26,6 +26,8 @@ services:
     volumes:
       - ./:/app
       - dagster_venv:/app/.venv
+    depends_on:
+      - dagsterdb
     labels:
       <<: *project-labels
   minio:

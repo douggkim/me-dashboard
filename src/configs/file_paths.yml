@@ -3,3 +3,7 @@ paths:
     raw_play_history:
       local: "./data/testing/raw/spotify_play_history"
       prod: ""
+  location:
+    raw_data:
+      local: "./data/testing/bronze/location"
+      prod: ""
