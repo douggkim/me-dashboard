@@ -185,7 +185,7 @@ data/**
 !data/testing/
 !data/DAGSTER_HOME/
 !**.gitkeep
-!data/dagster/dagster.yaml
+
 
 old/
 
