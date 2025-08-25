@@ -1,0 +1,13 @@
+storage:
+  postgres:
+    postgres_db:
+      username: dagster
+      password: p4ssw0rd
+      hostname: dagsterdb
+      db_name: dagster
+      port: 5432
+telemetry:
+  enabled: false
+concurrency:
+  runs:
+    max_concurrent_runs: 3
