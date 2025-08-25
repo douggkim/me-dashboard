@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import dagster as dg
 import fsspec
 import polars as pl
+from loguru import logger
 
 from src.resources.geo_encoder import GeoEncoderResource
 from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
@@ -91,12 +92,14 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
 
     # Get filesystem following existing pattern
     parsed = urlparse(partition_path)
-    storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.CREDENTIAL_STRINGS)
+    storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.UTILIZE_ENV_VARS)
     fs = (
         fsspec.filesystem("file")
         if parsed.scheme in {"", "file"}
         else fsspec.filesystem(parsed.scheme, **storage_options)
     )
+
+    logger.info(f"Reading location bronze data from {parsed}")
 
     # Check if partition directory exists
     if not fs.exists(partition_path):

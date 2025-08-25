@@ -6,4 +6,4 @@ paths:
   location:
     raw_data:
       local: "./data/testing/bronze/location"
-      prod: ""
+      prod: "s3://me-dashboard-doug/bronze/location"
