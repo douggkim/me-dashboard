@@ -319,22 +319,40 @@ class GeoEncoderResource(dg.ConfigurableResource):
             If geohash neighbor calculation fails
         """
         try:
-            # Get all 8 adjacent geohashes using pygeohash get_adjacent function
-            directions = ["top", "bottom", "right", "left", "topleft", "topright", "bottomleft", "bottomright"]
             neighbors = []
-
-            for direction in directions:
+            
+            # Get 4 cardinal direction neighbors
+            cardinal_directions = ["top", "bottom", "right", "left"]
+            cardinal_neighbors = {}
+            
+            for direction in cardinal_directions:
                 try:
                     neighbor_hash = pgh.get_adjacent(geohash=geohash, direction=direction)
                     neighbors.append(neighbor_hash)
+                    cardinal_neighbors[direction] = neighbor_hash
                 except Exception:  # noqa: BLE001
-                    # Skip invalid neighbors (e.g., at poles or edges)
-                    logger.exception(
-                        "Failed to get neighboring geohash. This is probably due to poles or edge coordinates"
-                    )
+                    logger.debug(f"Failed to get {direction} neighbor for geohash {geohash}")
+                    continue
+            
+            # Get 4 diagonal neighbors by chaining cardinal directions
+            diagonal_combinations = [
+                ("top", "right"),      # top-right
+                ("top", "left"),       # top-left  
+                ("bottom", "right"),   # bottom-right
+                ("bottom", "left"),    # bottom-left
+            ]
+            
+            for first_dir, second_dir in diagonal_combinations:
+                try:
+                    # Chain two cardinal moves to get diagonal neighbor
+                    if first_dir in cardinal_neighbors:
+                        diagonal_hash = pgh.get_adjacent(geohash=cardinal_neighbors[first_dir], direction=second_dir)
+                        neighbors.append(diagonal_hash)
+                except Exception:  # noqa: BLE001
+                    logger.debug(f"Failed to get diagonal neighbor {first_dir}-{second_dir} for geohash {geohash}")
                     continue
 
-            # Return center + all valid neighbors
+            # Return center + all valid neighbors (up to 8 neighbors)
             return [geohash, *neighbors]
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to get neighbors for geohash {geohash}: {e}")
