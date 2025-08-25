@@ -87,7 +87,7 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
         If geocoding API calls fail
     """
     partition_date = context.partition_key.replace("-", "_")
-    base_path = get_storage_path(dataset_name="location", table_name="raw_data")
+    base_path = get_storage_path(dataset_name="location", table_name="bronze")
     partition_path = f"{base_path}/{partition_date}"
 
     # Get filesystem following existing pattern
@@ -194,6 +194,7 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
     # Data type conversions and validation
     location_df = location_df.with_columns([
         pl.col("timestamp").str.to_datetime(),
+        pl.col("timestamp").str.to_datetime().dt.replace_time_zone("UTC").alias("timestamp_utc"),
         pl.col("latitude").cast(pl.Float64),
         pl.col("longitude").cast(pl.Float64),
         pl.col("speed").cast(pl.Float64),
@@ -207,7 +208,7 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
     ])
 
     # Add partition date column using preferred syntax
-    location_df = location_df.with_columns(date=pl.col("timestamp").dt.date())
+    location_df = location_df.with_columns(date=pl.col("timestamp_utc").dt.date())
 
     # Filter out invalid coordinates
     location_df = location_df.filter(
@@ -219,7 +220,7 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
 
     context.log.info(f"Processing {len(location_df)} valid location records for geocoding")
 
-    # Enrich with geocoding data using the geo_encoder resource with S3/MinIO caching
+    # Enrich with geocoding data using the geo_encoder resource to add address information.
     if len(location_df) > 0:
         try:
             df_enriched = geo_encoder.enrich_dataframe(

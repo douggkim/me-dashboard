@@ -4,6 +4,6 @@ paths:
       local: "./data/testing/raw/spotify_play_history"
       prod: ""
   location:
-    raw_data:
+    bronze:
       local: "./data/testing/bronze/location"
       prod: "s3://me-dashboard-doug/bronze/location"
