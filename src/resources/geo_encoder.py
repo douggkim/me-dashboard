@@ -15,10 +15,9 @@ import dagster as dg
 import fsspec
 import googlemaps
 import polars as pl
+import pygeohash as pgh
 from loguru import logger
 from pydantic import PrivateAttr
-from pygeohash import geohash as gh  # Find the correct function name
-from pygeohash import neighbor
 
 from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 
@@ -295,7 +294,7 @@ class GeoEncoderResource(dg.ConfigurableResource):
         if not (-1 * lng_max_abs_val <= lng <= lng_max_abs_val):
             raise ValueError(f"Invalid longitude: {lng}. Must be between -180 and 180")
 
-        return gh.encode(lat, lng, precision=self.cache_precision)
+        return pgh.encode(lat, lng, precision=self.cache_precision)
 
     def _get_neighbors(self, geohash: str) -> list[str]:
         """
@@ -320,9 +319,23 @@ class GeoEncoderResource(dg.ConfigurableResource):
             If geohash neighbor calculation fails
         """
         try:
-            neighbors = neighbor(geohash)
-            # get center + 8 neighbors
-            return [geohash, *list(neighbors.values())]
+            # Get all 8 adjacent geohashes using pygeohash get_adjacent function
+            directions = ["top", "bottom", "right", "left", "topleft", "topright", "bottomleft", "bottomright"]
+            neighbors = []
+
+            for direction in directions:
+                try:
+                    neighbor_hash = pgh.get_adjacent(geohash=geohash, direction=direction)
+                    neighbors.append(neighbor_hash)
+                except Exception:  # noqa: BLE001
+                    # Skip invalid neighbors (e.g., at poles or edges)
+                    logger.exception(
+                        "Failed to get neighboring geohash. This is probably due to poles or edge coordinates"
+                    )
+                    continue
+
+            # Return center + all valid neighbors
+            return [geohash, *neighbors]
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to get neighbors for geohash {geohash}: {e}")
             return [geohash]
