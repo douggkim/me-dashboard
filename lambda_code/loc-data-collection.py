@@ -184,7 +184,7 @@ def lambda_handler(event: dict[str, any], context: any) -> dict[str, any]:
             "body": json.dumps({
                 "result": "ok",
                 "locations_processed": len(locations),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }),
         }
 

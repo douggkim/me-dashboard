@@ -25,7 +25,10 @@ services:
       - "3000:3000"
     volumes:
       - ./:/app
+      - /etc/pki/:/etc/pki/
       - dagster_venv:/app/.venv
+    depends_on:
+      - dagsterdb
     labels:
       <<: *project-labels
   minio:

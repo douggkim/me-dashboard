@@ -184,9 +184,15 @@ data/**
 
 !data/testing/
 !data/DAGSTER_HOME/
-!**.gitkeep
+!data/dagster/
+data/dagster/*
 !data/dagster/dagster.yaml
+!**.gitkeep
+
 
 old/
 
 test_notebooks/
+
+# Claude Code configuration
+.claude/

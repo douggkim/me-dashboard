@@ -5,6 +5,10 @@ FROM ghcr.io/astral-sh/uv:debian-slim
 WORKDIR /app
 ENV UV_LINK_MODE=copy
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install python libraries required for running the application
 COPY uv.lock pyproject.toml ./
 RUN uv sync --frozen

@@ -8,6 +8,7 @@ import src.assets as assets_module
 import src.validation.asset_checks as asset_checks_module
 from src.jobs.delta_optimization import delta_maintenance, weekly_delta_maintenance_schedule
 from src.resources.data_loader import DataLoaderResource
+from src.resources.geo_encoder import GeoEncoderResource
 from src.resources.io_managers import JSONTextIOManager, PandasDeltaIOManager, PolarsDeltaIOManager
 from src.resources.psn_resource import PSNResource
 from src.resources.spotify_resource import SpotifyResource
@@ -35,6 +36,14 @@ defs = dg.Definitions(
             refresh_token=dg.EnvVar("SPOTIFY_REFRESH_TOKEN"),
         ),
         "psn_resource": PSNResource(refresh_token=dg.EnvVar("PSN_REFRESH_TOKEN")),
+        "geo_encoder": GeoEncoderResource(
+            google_maps_api_key=dg.EnvVar("GOOGLE_MAPS_API_KEY"),
+            s3_bucket=dg.EnvVar("AWS_S3_BUCKET_NAME"),
+            s3_cache_location="gps_cache/geocoding_cache.json",
+            cache_precision=6,
+            cache_ttl_days=30,
+            queries_per_second=40,
+        ),
     },
     jobs=[delta_maintenance],
     schedules=[weekly_delta_maintenance_schedule],
