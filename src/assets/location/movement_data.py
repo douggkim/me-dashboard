@@ -90,6 +90,8 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
     base_path = get_storage_path(dataset_name="location", table_name="bronze")
     partition_path = f"{base_path}/{partition_date}"
 
+    empty_df = pl.DataFrame(schema={"timestamp": pl.Datetime, "device_id": pl.String})
+
     # Get filesystem following existing pattern
     parsed = urlparse(partition_path)
     storage_options = get_aws_storage_options(return_credential_type=AWSCredentialFormat.UTILIZE_ENV_VARS)
@@ -104,18 +106,18 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
     # Check if partition directory exists
     if not fs.exists(partition_path):
         context.log.warning(f"No location data directory found for partition {context.partition_key}")
-        return pl.DataFrame()
+        return empty_df
 
     # List all JSON files in the partition directory
     try:
         json_files = fs.glob(f"{partition_path}/*.json")
     except Exception:
         context.log.exception(f"Failed to list files in {partition_path}")
-        return pl.DataFrame()
+        return empty_df
 
     if not json_files:
         context.log.warning(f"No JSON files found in {partition_path}")
-        return pl.DataFrame()
+        return empty_df
 
     # Load all JSON files from partition directory
     all_locations = []
@@ -137,7 +139,7 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
 
     if not all_locations:
         context.log.warning("No location data found")
-        return pl.DataFrame()
+        return empty_df
 
     context.log.info(f"Loaded {len(all_locations)} location records from {len(json_files)} files")
 
@@ -186,7 +188,7 @@ def location_data_silver(  # noqa: C901, PLR0912, PLR0915
 
     if not records:
         context.log.warning("No valid location records after processing")
-        return pl.DataFrame()
+        return empty_df
 
     # Create DataFrame with proper schema
     location_df = pl.DataFrame(records)

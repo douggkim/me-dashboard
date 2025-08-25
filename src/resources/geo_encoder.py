@@ -320,11 +320,11 @@ class GeoEncoderResource(dg.ConfigurableResource):
         """
         try:
             neighbors = []
-            
+
             # Get 4 cardinal direction neighbors
             cardinal_directions = ["top", "bottom", "right", "left"]
             cardinal_neighbors = {}
-            
+
             for direction in cardinal_directions:
                 try:
                     neighbor_hash = pgh.get_adjacent(geohash=geohash, direction=direction)
@@ -333,15 +333,15 @@ class GeoEncoderResource(dg.ConfigurableResource):
                 except Exception:  # noqa: BLE001
                     logger.debug(f"Failed to get {direction} neighbor for geohash {geohash}")
                     continue
-            
+
             # Get 4 diagonal neighbors by chaining cardinal directions
             diagonal_combinations = [
-                ("top", "right"),      # top-right
-                ("top", "left"),       # top-left  
-                ("bottom", "right"),   # bottom-right
-                ("bottom", "left"),    # bottom-left
+                ("top", "right"),  # top-right
+                ("top", "left"),  # top-left
+                ("bottom", "right"),  # bottom-right
+                ("bottom", "left"),  # bottom-left
             ]
-            
+
             for first_dir, second_dir in diagonal_combinations:
                 try:
                     # Chain two cardinal moves to get diagonal neighbor
@@ -620,7 +620,6 @@ class GeoEncoderResource(dg.ConfigurableResource):
         >>> print(data.keys())
         dict_keys(['latitude', 'longitude', 'formatted_address', 'country'])
         """
-        # TODO: revisit and see what info we need to extract -> Seems like this is correct.
         default_columns = [
             "formatted_address",
             "country",
