@@ -7,3 +7,7 @@ paths:
     bronze:
       local: "./data/testing/bronze/location"
       prod: "s3://me-dashboard-doug/bronze/location"
+  health:
+    bronze:
+      local: "./data/testing/bronze/health"
+      prod: "s3://me-dashboard-doug/bronze/health"
