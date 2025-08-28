@@ -11,3 +11,7 @@ paths:
     bronze:
       local: "./data/testing/bronze/health"
       prod: "s3://me-dashboard-doug/bronze/health"
+  workout:
+    bronze:
+      local: "./data/testing/bronze/workout"
+      prod: "s3://me-dashboard-doug/bronze/workout"
