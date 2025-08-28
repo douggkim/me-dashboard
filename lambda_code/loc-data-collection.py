@@ -40,8 +40,6 @@ def _authenticate_request(headers: dict[str, str]) -> dict[str, any] | None:
     # API Gateway might lowercase headers, so check both cases
     auth_header = headers.get("authorization") or headers.get("Authorization", "")
 
-    logger.info(f"Authorization header: {auth_header}")
-
     # Check for Bearer token
     if not auth_header.startswith("Bearer "):
         logger.warning("Missing or invalid Authorization header")

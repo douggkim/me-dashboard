@@ -1,6 +1,8 @@
-"""Lambda code for collecting and saving health data to S3."""
+"""Lambda code for collecting and saving health/workout data to S3."""
 
 import base64
+import csv
+import io
 import json
 import logging
 import os
@@ -41,8 +43,6 @@ def _authenticate_request(headers: dict[str, str]) -> dict[str, any] | None:
     # API Gateway might lowercase headers, so check both cases
     auth_header = headers.get("authorization") or headers.get("Authorization", "")
 
-    logger.info(f"Authorization header: {auth_header}")
-
     # Check for Bearer token
     if not auth_header.startswith("Bearer "):
         logger.warning("Missing or invalid Authorization header")
@@ -79,48 +79,61 @@ def _authenticate_request(headers: dict[str, str]) -> dict[str, any] | None:
     return None
 
 
-def _log_health_metrics(health_data: dict[str, any]) -> int:
+def _log_csv_data(csv_content: str, data_type: str) -> tuple[list[str], int]:
     """
-    Log health metrics summary.
+    Log CSV data summary.
 
     Parameters
     ----------
-    health_data : dict[str, any]
-        Parsed health data containing metrics information.
+    csv_content : str
+        CSV content as string.
+    data_type : str
+        Type of data (health, workout, etc.).
 
     Returns
     -------
-    int
-        Total number of metric data points processed.
+    tuple[list[str], int]
+        Tuple of (column_names, row_count).
     """
-    metrics = health_data.get("data", {}).get("metrics", [])
-    total_data_points = 0
+    try:
+        csv_reader = csv.reader(io.StringIO(csv_content))
+        rows = list(csv_reader)
 
-    logger.info(f"📊 Health Data received with {len(metrics)} metric types:")
+        if not rows:
+            logger.warning("📊 Empty CSV data received")
+            return [], 0
 
-    for metric in metrics:
-        metric_name = metric.get("name", "unknown")
-        metric_units = metric.get("units", "unknown")
-        metric_data = metric.get("data", [])
-        
-        logger.info(f"  📈 {metric_name} ({metric_units}): {len(metric_data)} data points")
-        total_data_points += len(metric_data)
+        # Headers start from the 4th row (index 3)
+        if len(rows) < 5:
+            logger.warning("📊 CSV has fewer than 4 rows - no headers found")
+            return [], 0
 
-    return total_data_points
+        headers = rows[4]  # 4th row contains headers
+        data_rows = rows[5:]  # Data starts from 5th row
+
+        logger.info(f"📊 {data_type.title()} CSV Data received:")
+        logger.info(f"  📋 Columns ({len(headers)}): {', '.join(headers)}")
+        logger.info(f"  📈 Data rows: {len(data_rows)}")
+
+        return headers, len(data_rows)
+
+    except Exception:
+        logger.exception("❌ Failed to parse CSV")
+        return [], 0
 
 
 def lambda_handler(event: dict[str, any], context: any) -> dict[str, any]:
     """
-    AWS Lambda handler for processing health data.
+    AWS Lambda handler for processing health/workout CSV data.
 
-    Receives health metrics data via HTTP POST request, authenticates the request,
-    processes the health data (handling base64 encoding if present), and stores it to S3.
+    Receives CSV data via HTTP POST request (base64 encoded), authenticates the request,
+    processes the CSV data based on data_type header, and stores it to S3.
 
     Parameters
     ----------
     event : dict[str, any]
         AWS Lambda event object containing HTTP request data including headers,
-        body with health metrics, and other request metadata.
+        body with base64-encoded CSV data, and other request metadata.
     context : any
         AWS Lambda context object containing runtime information including
         request ID and execution details.
@@ -130,14 +143,14 @@ def lambda_handler(event: dict[str, any], context: any) -> dict[str, any]:
     dict[str, any]
         HTTP response dictionary containing statusCode, headers, and JSON body.
         Returns 200 on success with processing summary, 401 for authentication
-        errors, 400 for invalid JSON/base64, or 500 for unexpected errors.
+        errors, 400 for invalid CSV/base64, or 500 for unexpected errors.
 
     Raises
     ------
-    json.JSONDecodeError
-        When the request body contains invalid JSON data.
     Exception
         For any unexpected errors during processing or S3 storage.
+    ValueError
+        The header 'data_type' was not provided properly.
     KeyError
         When required environment variables (S3_BUCKET, HEALTH_TOKEN) are missing.
     boto3.exceptions.Boto3Error
@@ -145,7 +158,7 @@ def lambda_handler(event: dict[str, any], context: any) -> dict[str, any]:
     """
     try:
         # Log the entire incoming event for debugging
-        logger.info("Received health data event:")
+        logger.info("Received data collection event:")
         logger.info(json.dumps(event, indent=2, default=str))
 
         # Extract headers and authenticate
@@ -154,50 +167,53 @@ def lambda_handler(event: dict[str, any], context: any) -> dict[str, any]:
         if auth_error:
             return auth_error
 
-        # Parse the health data
-        body = event.get("body", "{}")
-        
-        # Handle base64 encoded body if present
-        if event.get("isBase64Encoded", False):
-            logger.info("📦 Decoding base64 encoded body")
-            try:
-                body = base64.b64decode(body).decode('utf-8')
-            except Exception as e:
-                logger.error(f"❌ Failed to decode base64 body: {e}")
-                return {
-                    "statusCode": 400,
-                    "headers": {"Content-Type": "application/json"},
-                    "body": json.dumps({"error": "Failed to decode base64 body", "details": str(e)}),
-                }
+        # Extract data_type from headers
+        data_type = headers.get("data_type") or headers.get("Data-Type")
+        if data_type is None:
+            raise ValueError("The data has to include 'data_type' header. Please check the message.")
+        logger.info(f"📊 Processing {data_type} data")
 
-        # Parse JSON
-        health_data: dict[str, any] = json.loads(body) if isinstance(body, str) else body
+        # Parse the CSV data - expect base64 encoded
+        body = event.get("body", "")
 
-        # Log health metrics summary
-        total_data_points = _log_health_metrics(health_data)
+        # Decode base64 encoded body (always expected for CSV)
+        logger.info("📦 Decoding base64 encoded CSV body")
+        try:
+            csv_content = base64.b64decode(body).decode("utf-8")
+        except Exception:
+            logger.exception("❌ Failed to decode base64 body")
+            return {
+                "statusCode": 400,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "Failed to decode base64 body"}),
+            }
+
+        # Log CSV data summary
+        columns, row_count = _log_csv_data(csv_content, data_type)
 
         # Store to S3
         timestamp = datetime.now(UTC)
-        file_name = f"{timestamp.strftime('%H%M%S')}-{context.aws_request_id}.json"
-        storage_location = os.getenv("STORAGE_LOCATION")
+        file_name = f"{timestamp.strftime('%H%M%S')}-{context.aws_request_id}.csv"
+        base_storage_location = os.getenv("STORAGE_LOCATION", "bronze")
         date_directory = f"{timestamp.strftime('%Y_%m_%d')}"
 
-        file_key = f"{storage_location}/{date_directory}/{file_name}"
+        file_key = f"{base_storage_location}/{data_type}/{date_directory}/{file_name}"
 
         s3_client.put_object(
             Bucket=bucket_name,
             Key=file_key,
-            Body=json.dumps(health_data, indent=2),
-            ContentType="application/json",
+            Body=csv_content,
+            ContentType="text/csv",
             Metadata={
-                "source": "health-app",
-                "metric_types": str(len(health_data.get("data", {}).get("metrics", []))),
-                "data_points": str(total_data_points),
+                "source": f"{data_type}-app",
+                "data_type": data_type,
+                "columns": str(len(columns)),
+                "rows": str(row_count),
                 "timestamp": timestamp.isoformat(),
             },
         )
 
-        logger.info(f"✅ Stored {total_data_points} health data points to s3://{bucket_name}/{file_key}")
+        logger.info(f"✅ Stored {row_count} {data_type} data rows to s3://{bucket_name}/{file_key}")
 
         # Return success response
         return {
@@ -207,28 +223,19 @@ def lambda_handler(event: dict[str, any], context: any) -> dict[str, any]:
             },
             "body": json.dumps({
                 "result": "ok",
-                "metric_types_processed": len(health_data.get("data", {}).get("metrics", [])),
-                "data_points_processed": total_data_points,
+                "data_type": data_type,
+                "columns_processed": len(columns),
+                "rows_processed": row_count,
                 "timestamp": datetime.now(UTC).isoformat(),
             }),
         }
 
-    except json.JSONDecodeError as e:
-        logger.exception("❌ JSON parsing error")
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Content-Type": "application/json",
-            },
-            "body": json.dumps({"error": "Invalid JSON in request body", "details": str(e)}),
-        }
-
-    except Exception as e:
+    except Exception:
         logger.exception("❌ Unexpected error")
         return {
             "statusCode": 500,
             "headers": {
                 "Content-Type": "application/json",
             },
-            "body": json.dumps({"error": "Internal server error", "details": str(e)}),
+            "body": json.dumps({"error": "Internal server error"}),
         }
