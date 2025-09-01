@@ -14,6 +14,7 @@ import polars as pl
 from dagster import ConfigurableIOManager, InputContext, MetadataValue, OutputContext
 from furl import furl
 from loguru import logger
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential, wait_exponential_jitter
 
 from src.utils.encoder import CustomerJSONEncoder
 
@@ -28,10 +29,22 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
     ----------
     storage_options : dict
         A dictionary of connection options used to connect to AWS S3 Storage.
+    retry_max_attempts : int
+        Maximum number of retry attempts for delta write operations (default: 3).
+    retry_min_wait : float
+        Minimum wait time in seconds between retries (default: 1.0).
+    retry_max_wait : float
+        Maximum wait time in seconds between retries (default: 30.0).
+    retry_jitter : bool
+        Whether to add random jitter to retry delays (default: True).
     """
 
     storage_options: dict = dict()  # noqa: RUF012
     output_base_path: str
+    retry_max_attempts: int = 3
+    retry_min_wait: float = 1.0
+    retry_max_wait: float = 30.0
+    retry_jitter: bool = True
 
     @abstractmethod
     def load_input(self, context: InputContext) -> Any:
@@ -112,6 +125,72 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
 
         return str(output_base_path)
 
+    def _write_delta_with_retry(
+        self,
+        context: OutputContext,
+        obj: pl.DataFrame,
+        path: str,
+        mode: str,
+        **write_options: Any,
+    ) -> None:
+        """
+        Write a DataFrame to a Delta Table with retry logic for handling concurrent writes.
+
+        Parameters
+        ----------
+        context : OutputContext
+            The Dagster context for the output operation
+        obj : pl.DataFrame
+            The DataFrame to write
+        path : str
+            The target path for the Delta Table
+        mode : str
+            Write mode ('merge', 'overwrite', etc.)
+        **write_options : Any
+            Additional options for the write operation
+        """
+        # Configure wait strategy based on jitter setting
+        wait_strategy = (
+            wait_exponential_jitter(multiplier=self.retry_min_wait, max=self.retry_max_wait)
+            if self.retry_jitter
+            else wait_exponential(multiplier=self.retry_min_wait, max=self.retry_max_wait)
+        )
+
+        @retry(
+            stop=stop_after_attempt(self.retry_max_attempts),
+            wait=wait_strategy,
+            retry=retry_if_exception_type((Exception,)),
+            reraise=True,
+        )
+        def _execute_write() -> None:
+            delta_merge_options = write_options.get("delta_merge_options")
+            delta_write_options = write_options.get("delta_write_options", {})
+
+            if mode == "merge":
+                write_kwargs = {
+                    "target": path,
+                    "mode": mode,
+                    "storage_options": self.storage_options,
+                    "delta_write_options": delta_write_options,
+                    "delta_merge_options": delta_merge_options,
+                }
+                obj.write_delta(**write_kwargs).when_matched_update_all().when_not_matched_insert_all().execute()
+            else:
+                write_kwargs = {
+                    "target": path,
+                    "mode": mode,
+                    "storage_options": self.storage_options,
+                    "delta_write_options": delta_write_options,
+                }
+                obj.write_delta(**write_kwargs)
+
+        try:
+            _execute_write()
+            context.log.info(f"Successfully wrote DataFrame to {path}")
+        except Exception:
+            context.log.exception(f"Failed to write DataFrame to {path} after {self.retry_max_attempts} attempts")
+            raise
+
     def handle_output(self, context: OutputContext, obj: pl.LazyFrame | pl.DataFrame | pd.DataFrame) -> None:
         """Write a DataFrame to a specified path in AWS S3 storage as a Delta Table.
 
@@ -156,39 +235,37 @@ class GenericInputDeltaIOManager(ConfigurableIOManager, ABC):
             context.log.info(f"Table at {path} exists, performing merge operation using columns:{primary_keys}")
             logger.info(f"Generated merge predicate for TABLE MERGE: {merge_predicate}")
 
-            (
-                obj.write_delta(
-                    f"{path}",
-                    mode="merge",
-                    delta_merge_options={
-                        "predicate": merge_predicate,
-                        "source_alias": "s",
-                        "target_alias": "t",
-                    },
-                    delta_write_options={"schema_mode": "overwrite"},
-                    storage_options=self.storage_options,
-                )
-                .when_matched_update_all()
-                .when_not_matched_insert_all()
-                .execute()
+            self._write_delta_with_retry(
+                context=context,
+                obj=obj,
+                path=path,
+                mode="merge",
+                delta_merge_options={
+                    "predicate": merge_predicate,
+                    "source_alias": "s",
+                    "target_alias": "t",
+                },
+                delta_write_options={"schema_mode": "overwrite"},
             )
         elif partition_cols:
             context.log.info(f"Writing to {path} - the table will be partitioned using columns: {partition_cols}")
 
-            obj.write_delta(
-                target=f"{path}",
+            self._write_delta_with_retry(
+                context=context,
+                obj=obj,
+                path=path,
                 mode="overwrite",
-                storage_options=self.storage_options,
                 delta_write_options={"partition_by": partition_cols, "schema_mode": "overwrite"},
             )
         else:
             context.log.warning(
                 f"Writing to {path} - No partition keys have been set. The table will be fully overwritten"
             )
-            obj.write_delta(
-                target=f"{path}",
+            self._write_delta_with_retry(
+                context=context,
+                obj=obj,
+                path=path,
                 mode="overwrite",
-                storage_options=self.storage_options,
                 delta_write_options={"schema_mode": "overwrite"},
             )
 
