@@ -64,3 +64,9 @@ The project includes AWS Lambda deployment via GitHub Actions:
 - Use the existing medallion architecture pattern for new data sources
 - Follow the established resource pattern for new external service integrations
 - Delta table maintenance is automated via scheduled jobs
+
+### Import Guidelines
+- **ALWAYS use absolute imports starting with `src.`** - Never use relative imports or sys.path manipulation
+- Example: `from src.utils.health_data import parse_health_csv_content` 
+- Example: `from src.resources.spotify_resource import SpotifyResource`
+- This ensures imports work correctly from any execution context (tests, Dagster UI, CLI, etc.)
