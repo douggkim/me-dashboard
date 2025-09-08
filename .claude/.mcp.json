@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "duckdb-data-agent": {
+            "command": "uvx",
+            "args": [
+                "mcp-server-duckdb",
+                "--db-path",
+                "./data/testing/analysis.duckdb"
+            ],
+            "env": {}
+        }
+    }
+}

@@ -194,5 +194,8 @@ old/
 
 test_notebooks/
 
-# Claude Code configuration
-.claude/
+# Claude Code configuration - track important files but ignore sensitive ones
+.claude/settings.json
+.claude/.mcp_cache/
+.claude/temp/
+.claude/*.log
