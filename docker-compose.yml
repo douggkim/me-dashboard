@@ -5,6 +5,7 @@ services:
   dagsterdb:
     image: postgres
     container_name: dagsterdb
+    restart: unless-stopped  
     environment:
       POSTGRES_USER: dagster
       POSTGRES_PASSWORD: p4ssw0rd
@@ -17,6 +18,7 @@ services:
       <<: *project-labels
   dagster:
     container_name: dagster
+    restart: unless-stopped  
     build:
       context: .
     env_file:
