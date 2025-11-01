@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python libraries required for running the application
-COPY uv.lock pyproject.toml ./
+COPY .python-version uv.lock pyproject.toml ./ 
 RUN uv sync --frozen
 
 # Expose port
