@@ -89,3 +89,15 @@ Encountering issues with Dagster asset discovery or execution is common. Here's 
 ## Initial Understanding / Next Steps
 The project seems well-structured for data engineering workflows. My immediate goal is to understand how these components interact and to be able to make changes or add features as requested. I will refer to this document to quickly recall project context.
 
+## Pipeline Development Guidelines
+
+When creating or modifying data pipelines (especially Dagster assets), please adhere to the project's [Contributing Guidelines](./CONTRIBUTING.md). Key aspects to remember include:
+
+*   **Coding Conventions**: All Python code must adhere to [Ruff](https://beta.ruff.rs/docs/) coding style.
+*   **Polars Usage**: Use [Polars](https://pola.rs/) for all data manipulation and transformation tasks.
+*   **Docstring Format**: All functions, classes, and modules should follow the [NumPy Docstring Format](https://numpydoc.readthedocs.io/en/latest/format.html).
+*   **Type Hinting**: Use native Python type hints (`str`, `int`, `list`, `dict`, etc.). Avoid importing types from the `typing` module unless strictly necessary.
+*   **Helper Functions**: Break down complex pipelines into smaller, focused helper functions for readability, maintainability, and testability.
+*   **Aggregations and Column Creation**: When using Polars, employ the "named" approach for aggregations and column creation (e.g., `with_columns(new_col=pl.expr(...))`).
+*   **Unit Testing**: Every pipeline helper function and utility function should have corresponding unit tests using `pytest`.
+
