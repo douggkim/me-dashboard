@@ -56,6 +56,12 @@ You can query the data directly from the S3-backed delta tables using `delta_sca
 ```python
 # Query the silver-layer Delta table from S3
 execute_query(sql="SELECT * FROM delta_scan('s3://me-dashboard/silver/location/location_data_silver') LIMIT 5;")
+
+# Query the bronze-layer GitHub commits data (JSON files are converted to table by Dagster)
+execute_query(sql="SELECT * FROM delta_scan('s3://me-dashboard/bronze/work/github/github_commits') LIMIT 5;")
+
+# Query the bronze-layer GitHub repository statistics data
+execute_query(sql="SELECT * FROM delta_scan('s3://me-dashboard/bronze/work/github/github_repository_stats') LIMIT 5;")
 ```
 
 ## Data Dictionary
