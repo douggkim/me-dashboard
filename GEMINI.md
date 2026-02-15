@@ -49,7 +49,13 @@ This repository appears to be a data dashboard project, likely focused on collec
     *   **Example (List Assets):** `docker exec dagster uv run dagster asset list -m src.main`
     *   **Example (Materialize a specific asset):** `docker exec dagster uv run dagster asset materialize --select <asset_key> -m src.main`
     *   **Note:** The `scripts/run_dagster_test.py` script can also be used for specific asset materialization, but direct `dagster` CLI commands offer more flexibility.
-3.  **Query the results:** Use the `duckdb_gemini_agent` to query the materialized data and verify the changes.
+3.  **Create Unit Tests:** For any new logic or bug fix, create corresponding unit tests.
+    *   **Location:** Mirror the source structure in `src/tests/`.
+    *   **Pattern:** Use `pytest` fixtures for data and `unittest.mock` for external dependencies.
+4.  **Run Unit Tests:** Execute unit tests to ensure code correctness and prevent regressions.
+    *   **Command:** `uv run python -m pytest src/tests`
+    *   **Requirement:** Unit tests must be run and pass after any code implementation or modification logic.
+5.  **Query the results:** Use the `duckdb_gemini_agent` to query the materialized data and verify the changes.
 
 ## Debugging Dagster
 
