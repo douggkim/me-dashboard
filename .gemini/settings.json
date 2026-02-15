@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "duckdb": {
+      "command": "",
+      "args": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-duckdb"
+      ]
+    }
+  }
+}
