@@ -14,6 +14,8 @@ from src.resources.psn_resource import PSNResource
 from src.resources.spotify_resource import SpotifyResource
 from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 
+from src.sensors.email_failure_sensor import email_failure_sensor
+
 defs = dg.Definitions(
     assets=dg.with_source_code_references(dg.load_assets_from_package_module(assets_module)),
     resources={
@@ -47,5 +49,6 @@ defs = dg.Definitions(
     },
     jobs=[delta_maintenance],
     schedules=[weekly_delta_maintenance_schedule],
+    sensors=[email_failure_sensor],
     asset_checks=dg.load_asset_checks_from_package_module(asset_checks_module),
 )
