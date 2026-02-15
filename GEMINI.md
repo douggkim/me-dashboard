@@ -25,6 +25,7 @@ This repository appears to be a data dashboard project, likely focused on collec
 *   `docs/`: Documentation, including `data_dictionary.md`.
 *   `lambda_code/`: Python code for AWS Lambda functions.
 *   `scripts/`: General utility scripts.
+    *   `run_dagster_test.py`: A script to materialize Dagster assets.
 *   `src/`: Main application source code.
     *   `src/main.py`: Likely the entry point or main application logic.
     *   `src/assets/`: Dagster assets (data definitions and computation).
@@ -39,6 +40,13 @@ This repository appears to be a data dashboard project, likely focused on collec
     *   `src/utils/`: Utility functions (AWS, Azure, date, data loaders, encoder, global helpers).
     *   `src/validation/`: Data validation logic.
         *   `src/validation/schemas/`: Data schemas.
+
+## Development Lifecycle
+
+1.  **Make code changes:** Modify the source code as required for the task.
+2.  **Run Dagster pipelines:** After making changes to data pipelines, materialize the assets to test the changes. This is done using the `dagster_gemini_agent`.
+    *   **Example:** `docker exec dagster uv run python /app/scripts/run_dagster_test.py silver/entertainment/PSN/psn_game_play_history_silver 2025-06-07`
+3.  **Query the results:** Use the `duckdb_gemini_agent` to query the materialized data and verify the changes.
 
 ## Initial Understanding / Next Steps
 The project seems well-structured for data engineering workflows. My immediate goal is to understand how these components interact and to be able to make changes or add features as requested. I will refer to this document to quickly recall project context.
