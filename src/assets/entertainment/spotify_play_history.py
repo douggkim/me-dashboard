@@ -206,5 +206,5 @@ def spotify_play_history_silver(
         context.log.info(f"Removed {len(play_history_df) - len(deduplicated_df)} duplicate records")
 
     return deduplicated_df.with_columns(
-        played_at=pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="ms")
+        played_at=pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
     )
