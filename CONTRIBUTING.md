@@ -68,9 +68,26 @@ def example_function(param1: str, param2: int) -> bool:
 
 We use native Python type hints (`str`, `int`, `list`, `dict`, etc.) for all function signatures and variable annotations. Please avoid importing types from the `typing` module (e.g., `List`, `Dict`) unless absolutely necessary for advanced typing features not available in native types.
 
+*   **Polars Datetime Handling**: When working with datetime strings in Polars, especially those from external APIs, use `pl.col(...).str.to_datetime(time_unit="ns")`. Polars will correctly infer UTC for Z-formatted (ISO 8601 with 'Z' suffix) strings. Avoid the deprecated `utc=True` parameter.
+
 ## 5. Pipeline Development
 
 When developing data pipelines (especially Dagster assets), we emphasize readability, maintainability, and testability.
+
+### Dagster Asset Best Practices
+
+*   **Asset Naming and Grouping**:
+    *   Use `key_prefix` to define the full asset key, clearly reflecting the data layer and domain (e.g., `key_prefix=["bronze", "work", "github"]`).
+    *   `group_name` is primarily for UI organization within Dagster UI and should use valid Python identifier characters (e.g., `work_github`, not `work/github`).
+*   **Asset Discovery**:
+    *   For discoverability, ensure `__init__.py` files within asset directories (e.g., `src/assets/bronze/work/__init__.py`) are correctly structured. While `load_assets_from_package_module` can recursively find assets, explicit imports in higher-level `__init__.py` files may be necessary for deeply nested assets. Alternatively, directly list asset modules in `src/main.py` using `dg.load_assets_from_modules([...])` for explicit control and to prevent discovery issues.
+*   **Bronze Layer Output**:
+    *   Bronze layer assets should typically output raw data as `list[dict]` or `dict` structures, stored as JSON files (using `io_manager_json_txt`). Polars DataFrame creation and filtering should generally occur in subsequent silver-layer assets.
+*   **Resource Configuration**:
+    *   Configure resource-specific parameters (e.g., API keys, usernames) directly within the `ConfigurableResource` definition in `src/main.py` using `dg.EnvVar`. This simplifies asset signatures and centralizes resource configuration.
+*   **Partitioning**:
+    *   Define `partitions_def` (e.g., `dg.DailyPartitionsDefinition`) and `automation_condition` (e.g., `dg.AutomationCondition.on_cron`) for assets that process time-partitioned data.
+    *   When fetching data for a partition, filter API calls by the `context.partition_key` if the API supports it. If not, fetch a broader range and filter the resulting Polars DataFrame by the `partition_key` date range.
 
 ### Helper Functions
 
