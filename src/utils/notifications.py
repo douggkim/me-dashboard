@@ -8,7 +8,7 @@ def send_email_notification(
     body_text: str,
     sender: str,
     recipient: str,
-    aws_region: str = "us-east-1",
+    aws_region: str = "us-west-1",
 ):
     """Send an email notification using Amazon SES.
     
@@ -32,6 +32,7 @@ def send_email_notification(
     client = boto3.client('ses', region_name=aws_region)
 
     try:
+        logger.info(f"Attempting to send email via SES to {recipient} with subject '{subject}' in region {aws_region}")
         # Provide the contents of the email.
         response = client.send_email(
             Destination={
@@ -54,10 +55,10 @@ def send_email_notification(
             Source=sender,
         )
     except ClientError as e:
-        logger.error(f"Failed to send email: {e.response['Error']['Message']}")
+        logger.error(f"Failed to send email to {recipient}: {e.response['Error']['Message']}")
         raise e
     else:
-        logger.info(f"Email sent! Message ID: {response['MessageId']}")
+        logger.info(f"Email sent successfully to {recipient}! Message ID: {response['MessageId']}")
 
 if __name__ == "__main__":
     send_email_notification(
