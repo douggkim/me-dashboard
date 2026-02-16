@@ -4,28 +4,39 @@ This agent is responsible for interacting with the Dagster instance in this proj
 
 ## Tools
 
-The main tool for this agent is the `scripts/run_dagster_test.py` script.
+The primary way to interact with Dagster assets is directly via the Dagster CLI, executed within the `dagster` Docker container.
 
-### `scripts/run_dagster_test.py`
+### Materializing Assets
 
-This script is a command-line utility to materialize a Dagster asset for a specific partition.
+To materialize a specific Dagster asset for a given partition, use the `dagster asset materialize` command.
 
 **Usage:**
 ```bash
-python scripts/run_dagster_test.py <asset_key> <partition_date>
+docker exec dagster uv run dagster asset materialize --select <asset_key> -m src.main --partition <partition_date>
 ```
 
 **Arguments:**
-*   `<asset_key>`: The key of the asset to materialize. This can be a simple name or a slash-separated path for complex keys.
+*   `<asset_key>`: The full asset key (e.g., `bronze/work/github/github_commits`).
 *   `<partition_date>`: The partition date in `YYYY-MM-DD` format.
-
-**Environment:**
-
-This script must be run inside the `dagster` docker container to have access to the correct environment and dependencies. The recommended way to run it is using `docker exec` and `uv run`.
 
 **Example:**
 
-To materialize the `psn_game_play_history_silver` asset for the partition `2025-06-07`:
+To materialize the `bronze/work/github/github_commits` asset for the partition `2025-06-07`:
 ```bash
-docker exec dagster uv run python /app/scripts/run_dagster_test.py silver/entertainment/PSN/psn_game_play_history_silver 2025-06-07
+docker exec dagster uv run dagster asset materialize --select bronze/work/github/github_commits -m src.main --partition 2025-06-07
 ```
+
+### Listing Assets
+
+To list all discovered assets in the project:
+```bash
+docker exec dagster uv run dagster asset list -m src.main
+```
+
+### `scripts/run_dagster_test.py` (Deprecated - Use Direct CLI)
+
+This script was a command-line utility for asset materialization. It is now deprecated in favor of direct `dagster asset materialize` commands, which offer more flexibility and direct interaction with the Dagster CLI.
+
+## Troubleshooting
+
+For common Dagster issues, refer to the "Debugging Dagster" section in the main `GEMINI.md` file for detailed troubleshooting steps, including resolving duplicate asset definitions, database connection errors, and Docker environment issues.

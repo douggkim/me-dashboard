@@ -27,6 +27,7 @@ dependencies = [
     "polars>=1.26.0",
     "psnawp-api>=2.1.0",
     "pygeohash>=3.2.0",
+    "pytest>=9.0.2",
     "ruff>=0.11.2",
     "s3fs>=0.4.2",
     "xlsxwriter>=3.2.2",

@@ -34,5 +34,10 @@ This skill provides essential context about the `doug-dashboard` project. activa
 ## Development Lifecycle
 
 1.  **Make code changes**: Modify source code in `src/`.
-2.  **Run Dagster pipelines**: Materialize assets using the **Dagster Skill**.
-3.  **Query results**: Verify data using the **Data Analysis Skill**.
+2.  **Create Unit Tests**: Add tests in `src/tests/` mirroring the source structure.
+3.  **Run Unit Tests**: Verify changes using **Unit Testing Skill** (`uv run python -m pytest src/tests`).
+4.  **Run Linting**: Format and lint code using **Linting Skill** (`uv run ruff check .`).
+5.  **Run Dagster pipelines**: Materialize assets using the **Dagster Skill**.
+6.  **Query results**: Verify data using the **Data Analysis Skill**.
+7.  **Data Quality Checks**: Implement and run checks using the **Data Quality Skill**.
+8.  **Schema Validation**: Implement and run checks using the **Schema Validation Skill**.
