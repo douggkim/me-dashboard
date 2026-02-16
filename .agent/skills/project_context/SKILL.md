@@ -40,3 +40,4 @@ This skill provides essential context about the `doug-dashboard` project. activa
 5.  **Run Dagster pipelines**: Materialize assets using the **Dagster Skill**.
 6.  **Query results**: Verify data using the **Data Analysis Skill**.
 7.  **Data Quality Checks**: Implement and run checks using the **Data Quality Skill**.
+8.  **Schema Validation**: Implement and run checks using the **Schema Validation Skill**.
