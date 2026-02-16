@@ -1,124 +1,118 @@
+"""Unit tests for GitHub asset helper functions."""
 
 import datetime
-import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-# Need to make sure we can import from src
-# The user's pythonpath likely includes the root, so src.assets... works
+import pytest
+
 from src.assets.work.github.github import (
-    _get_unique_repos_from_commits,
-    _process_single_push_event,
-    _fetch_and_process_repo_stats,
-    _get_filtered_commits_data,
+    fetch_and_process_repo_stats,
+    filter_gh_events_by_date,
+    get_unique_repos_from_events,
 )
 
-def test_get_unique_repos_from_commits():
-    commits = [
-        {"repository": "owner/repo1", "other": "data"},
-        {"repository": "owner/repo2", "other": "data"},
-        {"repository": "owner/repo1", "other": "data"},
-    ]
-    repos = _get_unique_repos_from_commits(commits)
-    assert sorted(repos) == sorted(["owner/repo1", "owner/repo2"])
 
-    assert _get_unique_repos_from_commits([]) == []
+def test_get_unique_repos_from_events(sample_events: list[dict]) -> None:
+    """Test extracting unique repos from events."""
+    repos = get_unique_repos_from_events(sample_events)
+    # Based on gh_event.json content viewed earlier, "douggkim/me-dashboard" is repeated
+    assert "douggkim/me-dashboard" in repos
+    assert len(repos) > 0
 
 
-def test_process_single_push_event_with_commits_payload(
-    mock_github_resource, mock_context, sample_push_event, sample_commit_details
-):
-    # Mock get_commit response
-    # We can customize the fixture's mock return value for this specific test
-    sample_commit_details["stats"] = {"additions": 10, "deletions": 5}
-    mock_github_resource.get_commit.return_value = sample_commit_details
-
-    result = _process_single_push_event(sample_push_event, mock_github_resource, mock_context)
-
-    assert len(result) == 1
-    commit = result[0]
-    assert commit["commit_sha"] == "sha1"
-    assert commit["repository"] == "owner/repo"
-    assert commit["additions"] == 10
-    assert commit["deletions"] == 5
-    mock_github_resource.get_commit.assert_called_with("owner", "repo", "sha1")
+def test_get_unique_repos_from_events_empty() -> None:
+    """Test extracting unique repos from empty events list."""
+    assert get_unique_repos_from_events([]) == []
 
 
-def test_process_single_push_event_fallback_to_head(
-    mock_github_resource, mock_context
-):
-    mock_github_resource.get_commit.return_value = {
-        "commit": {
-            "author": {
-                "date": "2023-01-01T00:00:00Z",
-                "name": "Test User",
-                "email": "test@example.com",
-            },
-            "message": "head commit message",
+def test_filter_gh_events_by_date(sample_events: list[dict]) -> None:
+    """Test filtering events by date using data from gh_event.json."""
+    # gh_event.json contains events for 2026-02-16
+    partition_key = "2026-02-16"
+    filtered = filter_gh_events_by_date(sample_events, partition_key)
+
+    assert len(filtered) > 0
+    for event in filtered:
+        created_at = datetime.datetime.fromisoformat(event["created_at"])
+        assert created_at.date() == datetime.date(2026, 2, 16)
+
+    # Test a date that shouldn't match (e.g., 2020-01-01)
+    partition_key_empty = "2020-01-01"
+    filtered_empty = filter_gh_events_by_date(sample_events, partition_key_empty)
+    assert len(filtered_empty) == 0
+
+
+def test_filter_gh_events_by_date_invalid_format() -> None:
+    """Test filtering events with invalid date format raises ValueError."""
+    events = [{"id": "1", "created_at": "invalid-date"}]
+    with pytest.raises(ValueError, match="Invalid isoformat string"):
+        filter_gh_events_by_date(events, "2023-01-01")
+
+
+def test_fetch_and_process_repo_stats() -> None:
+    """Test fetching and processing repo stats."""
+    mock_github_resource = MagicMock()
+    mock_github_resource.get_repository_stats.side_effect = [
+        {
+            "stargazers_count": 10,
+            "forks_count": 5,
+            "open_issues_count": 2,
+            "watchers_count": 3,
+            "created_at": "2020-01-01T00:00:00Z",
+            "updated_at": "2023-01-01T00:00:00Z",
         },
-        "stats": {"additions": 20, "deletions": 10},
-    }
-
-    event = {
-        "id": "123",
-        "repo": {"name": "owner/repo"},
-        "payload": {"commits": [], "head": "head_sha"},
-    }
-
-    result = _process_single_push_event(event, mock_github_resource, mock_context)
-
-    assert len(result) == 1
-    commit = result[0]
-    assert commit["commit_sha"] == "head_sha"
-    assert commit["message"] == "head commit message"
-    # Verify warning was logged
-    mock_context.log.warning.assert_called()
-
-
-def test_fetch_and_process_repo_stats(
-    mock_github_resource, sample_repo_stats
-):
-    partition_date = datetime.datetime(2023, 1, 1, tzinfo=datetime.UTC)
-
-    mock_github_resource.get_repository_stats.return_value = sample_repo_stats
-
-    repos = ["owner/repo"]
-    stats = _fetch_and_process_repo_stats(repos, mock_github_resource, partition_date)
-
-    assert len(stats) == 1
-    stat = stats[0]
-    assert stat["repository"] == "owner/repo"
-    assert stat["stargazers_count"] == 100
-    assert stat["fetched_at"] == partition_date
-
-
-def test_get_filtered_commits_data(
-    mock_github_resource, mock_context, sample_push_event, sample_commit_details
-):
-    mock_github_resource.github_username = "testuser"
-    mock_context.partition_key = "2023-01-01"
-
-    # Mock user events
-    # Add a relevant push event and an irrelevant watch event
-    sample_push_event["payload"]["commits"][0]["sha"] = "sha1"
-    mock_github_resource.get_user_events.return_value = [
-        sample_push_event,
-        {"type": "WatchEvent"},  # Should be ignored
+        {
+            "stargazers_count": 20,
+            "forks_count": 8,
+            "open_issues_count": 1,
+            "watchers_count": 4,
+            "created_at": "2021-01-01T00:00:00Z",
+            "updated_at": "2023-01-02T00:00:00Z",
+        },
     ]
 
-    # Mock commit details for the push event
-    # Ensure date is within partition (2023-01-01)
-    sample_commit_details["commit"]["author"]["date"] = "2023-01-01T12:00:00Z"
-    mock_github_resource.get_commit.return_value = sample_commit_details
+    repos = ["owner/repo1", "owner/repo2"]
 
-    filtered_commits = _get_filtered_commits_data(context=mock_context, github_resource=mock_github_resource)
+    # Mock datetime to ensure consistent fetched_at
+    fixed_now = datetime.datetime(2023, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
+    with patch("src.assets.work.github.github.datetime.datetime") as mock_datetime:
+        mock_datetime.now.return_value = fixed_now
 
-    assert len(filtered_commits) == 1
-    assert filtered_commits[0]["commit_sha"] == "sha1"
+        stats = fetch_and_process_repo_stats(repos, mock_github_resource)
 
-    # Test filtering out of range dates
-    sample_commit_details["commit"]["author"]["date"] = "2023-01-02T12:00:00Z" # Outside partition
-    mock_github_resource.get_commit.return_value = sample_commit_details
+    assert len(stats) == 2
 
-    # Re-run with out-of-range date
-    filtered_commits_out = _get_filtered_commits_data(context=mock_context, github_resource=mock_github_resource)
-    assert len(filtered_commits_out) == 0
+    assert stats[0]["repository"] == "owner/repo1"
+    assert stats[0]["stargazers_count"] == 10
+    assert stats[0]["fetched_at"] == fixed_now
+
+    assert stats[1]["repository"] == "owner/repo2"
+    assert stats[1]["stargazers_count"] == 20
+    assert stats[1]["fetched_at"] == fixed_now
+
+    assert mock_github_resource.get_repository_stats.call_count == 2
+    mock_github_resource.get_repository_stats.assert_any_call("owner", "repo1")
+    mock_github_resource.get_repository_stats.assert_any_call("owner", "repo2")
+
+
+def test_fetch_and_process_repo_stats_error_handling() -> None:
+    """Test fetching repo stats with error handling."""
+    mock_github_resource = MagicMock()
+    # First call succeeds, second raises exception
+    mock_github_resource.get_repository_stats.side_effect = [
+        {
+            "stargazers_count": 10,
+            "forks_count": 5,
+            "open_issues_count": 2,
+            "watchers_count": 3,
+            "created_at": "2020-01-01T00:00:00Z",
+            "updated_at": "2023-01-01T00:00:00Z",
+        },
+        Exception("Repo not found"),
+    ]
+
+    repos = ["owner/repo1", "owner/repo2"]
+
+    # We expect the exception to propagate up
+    with pytest.raises(Exception, match="Repo not found"):
+        fetch_and_process_repo_stats(repos, mock_github_resource)
