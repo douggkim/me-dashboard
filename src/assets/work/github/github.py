@@ -57,6 +57,7 @@ def github_commits(context: AssetExecutionContext, github_resource: GithubResour
 @asset(
     group_name="work_github",
     key_prefix=["bronze", "work", "github"],
+    io_manager_key="io_manager_json_txt",
     partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=1, timezone="Etc/UTC"),
     ins={
         "github_commits": dg.AssetIn(key_prefix=["bronze", "work", "github"], input_manager_key="io_manager_json_txt")
@@ -67,14 +68,14 @@ def github_repository_stats(
     context: AssetExecutionContext,
     github_resource: GithubResource,
     github_commits: list,
-) -> pl.DataFrame:
+) -> list[dict]:
     """
     Fetch repository statistics for all repositories a user has committed to for a specific partition date.
 
     This asset takes the unique repositories from the `github_commits` list of dictionaries
-    (filtered by partition), converts them to a Polars DataFrame, queries the GitHub API
-    for each repository's statistics (stars, forks, issues, etc.), and returns them as
-    a Polars DataFrame. The `fetched_at` timestamp is set to the partition start time.
+    (filtered by partition), queries the GitHub API for each repository's statistics
+    (stars, forks, issues, etc.), and returns them as a list of dictionaries.
+    The `fetched_at` timestamp is set to the partition start time.
 
     Parameters
     ----------
@@ -88,8 +89,8 @@ def github_repository_stats(
 
     Returns
     -------
-    pl.DataFrame
-        A Polars DataFrame containing the following columns:
+    list[dict]
+        A list of dictionaries containing the following keys:
         - `repository` (str): The name of the repository (owner/repo_name).
         - `stargazers_count` (int): Total number of stars for the repository.
         - `forks_count` (int): Total number of forks for the repository.
@@ -101,19 +102,7 @@ def github_repository_stats(
     """
     if not github_commits:  # If the input list is empty
         context.log.info("No commits found for partition, skipping repository stats fetching.")
-        # Return an empty DataFrame with the expected schema
-        return pl.DataFrame(
-            schema={
-                "repository": pl.Utf8,
-                "stargazers_count": pl.UInt32,
-                "forks_count": pl.UInt32,
-                "open_issues_count": pl.UInt32,
-                "watchers_count": pl.UInt32,
-                "created_at": pl.Datetime,
-                "updated_at": pl.Datetime,
-                "fetched_at": pl.Datetime,
-            }
-        )
+        return []
 
     repos = _get_unique_repos_from_commits(github_commits)
 
@@ -122,14 +111,8 @@ def github_repository_stats(
 
     all_stats = _fetch_and_process_repo_stats(repos, github_resource, partition_date_dt)
 
-    df = pl.DataFrame(all_stats)
-    if not df.is_empty():
-        df = df.with_columns(
-            pl.col("created_at").str.to_datetime(time_unit="ns"),
-            pl.col("updated_at").str.to_datetime(time_unit="ns"),
-        )
-    context.log.info(f"Found stats for {len(df)} repositories for partition {context.partition_key}")
-    return df
+    context.log.info(f"Found stats for {len(all_stats)} repositories for partition {context.partition_key}")
+    return all_stats
 
 
 def _get_unique_repos_from_commits(github_commits: list) -> list[str]:
