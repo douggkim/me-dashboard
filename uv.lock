@@ -604,9 +604,15 @@ dependencies = [
     { name = "psnawp-api" },
     { name = "pygeohash" },
     { name = "pytest" },
+    { name = "requests" },
     { name = "ruff" },
     { name = "s3fs" },
     { name = "xlsxwriter" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -634,10 +640,13 @@ requires-dist = [
     { name = "psnawp-api", specifier = ">=2.1.0" },
     { name = "pygeohash", specifier = ">=3.2.0" },
     { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.3" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", specifier = ">=0.11.2" },
     { name = "s3fs", specifier = ">=0.4.2" },
     { name = "xlsxwriter", specifier = ">=3.2.2" },
 ]
+provides-extras = ["dev"]
 
 [[package]]
 name = "duckdb"
