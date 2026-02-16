@@ -27,30 +27,58 @@ Instead, validate **inside an `@asset_check`**:
 3. call `MySchema.validate(df)`.
 
 ### 2. Silver/Gold Layers (Polars/Pandas) -> *Dagster Type System*
-For assets that already return DataFrames, you *can* use `dagster_pandera.pandera_schema_to_dagster_type` to create a Dagster Type. This integrates validation into the input/output type system.
+For assets that already return DataFrames, you SHOULD use `dagster_pandera.pandera_schema_to_dagster_type` to create a Dagster Type. This integrates validation into the input/output type system and ensures that the asset's output is validated against the schema.
 
-However, using the **`@asset_check`** pattern (Strategy 1) is often preferred even here, as it decouples validation failure from downstream execution (soft failures) and provides better visibility in the UI.
+```python
+# In your schema file
+import dagster_pandera
+import pandera.polars as pa
+
+class MySchema(pa.DataFrameModel):
+    ...
+
+my_dagster_type = dagster_pandera.pandera_schema_to_dagster_type(MySchema)
+
+# In your asset file
+@dg.asset(dagster_type=my_dagster_type)
+def my_silver_asset(...):
+    ...
+```
+
+### 3. Asset Checks and IO Managers
+When implement validation inside an `@asset_check` for a Polars DataFrame, ensure you specify the correct IO manager (e.g., `io_manager_pl`) if the default is not suitable.
+
+```python
+@dg.asset_check(asset=my_asset, io_manager_key="io_manager_pl")
+def check_my_asset(my_asset: pl.DataFrame):
+     MySchema.validate(my_asset)
+     return dg.AssetCheckResult(passed=True)
+```
 
 ## Workflow
 
 1.  **Define Schema**: Create a `DataFrameModel` in `src/validation/schemas/`.
-2.  **Implement Validation**:
-    *   **Asset Checks**: Import the schema and use `MySchema.validate(df)` inside an `@asset_check`.
+2.  **Export Dagster Type**: For Silver/Gold layers, export a Dagster Type using `pandera_schema_to_dagster_type`.
+3.  **Implement Validation**:
+    *   **Silver/Gold Assets**: Use the exported Dagster Type in the `dagster_type` parameter.
+    *   **Asset Checks**: Import the schema and use `MySchema.validate(df)` inside an `@asset_check`. Use `io_manager_key` if necessary.
 
 ## Example Schema
 
 ```python
 import pandera.polars as pa
 import polars as pl
-from pandera.typing import DataFrame
+import dagster_pandera
 
 class GithubRepositoryStatsSchema(pa.DataFrameModel):
-    repository: str = pa.Field(dtype=pl.Utf8, nullable=False, description="Full repository name (owner/repo).")
-    stargazers_count: int = pa.Field(dtype=pl.Int64, ge=0, description="Number of stars. Must be non-negative.")
-    fetched_at: pl.Datetime = pa.Field(dtype=pl.Datetime, description="Timestamp of data fetch.")
+    repository: str = pa.Field(nullable=False, description="Full repository name (owner/repo).")
+    stargazers_count: int = pa.Field(ge=0, description="Number of stars. Must be non-negative.")
+    fetched_at: pl.Datetime = pa.Field(description="Timestamp of data fetch.")
 
     class Config:
         strict = True  # Reject unknown columns
+
+github_stats_dagster_type = dagster_pandera.pandera_schema_to_dagster_type(GithubRepositoryStatsSchema)
 ```
 
 ## Example Usage (Bronze/JSON)

@@ -10,6 +10,7 @@ from furl import furl
 from src.resources.spotify_resource import SpotifyResource
 from src.utils.data_loaders import get_storage_path
 from src.utils.date import datetime_to_epoch_ms
+from src.validation.schemas.spotify_schema import spotify_silver_dagster_type
 
 
 @dg.asset(
@@ -130,6 +131,7 @@ def _parse_raw_spotify_item(item: dict) -> dict:
     name="spotify_play_history_silver",
     key_prefix=["silver", "entertainment", "spotify"],
     description="Processed version of the Spotify Playhistory",
+    dagster_type=spotify_silver_dagster_type,
     group_name="entertainment",
     kinds={"polars", "silver"},
     tags={"domain": "entertainment", "source": "spotify"},
