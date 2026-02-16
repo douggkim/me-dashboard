@@ -3,7 +3,7 @@ x-project-labels: &project-labels
   project: "me-dashboard"
 services:
   dagsterdb:
-    image: postgres
+    image: postgres:17
     container_name: dagsterdb
     restart: unless-stopped  
     environment:

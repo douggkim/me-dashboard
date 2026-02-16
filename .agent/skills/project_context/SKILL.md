@@ -39,3 +39,4 @@ This skill provides essential context about the `doug-dashboard` project. activa
 4.  **Run Linting**: Format and lint code using **Linting Skill** (`uv run ruff check .`).
 5.  **Run Dagster pipelines**: Materialize assets using the **Dagster Skill**.
 6.  **Query results**: Verify data using the **Data Analysis Skill**.
+7.  **Data Quality Checks**: Implement and run checks using the **Data Quality Skill**.
