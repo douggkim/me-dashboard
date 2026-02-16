@@ -21,6 +21,12 @@ To run a specific test file:
 uv run python -m pytest src/tests/path/to/test_file.py
 ```
 
+To see detailed outputs (which tests passed/failed):
+
+```bash
+uv run python -m pytest -v src/tests
+```
+
 ## Creating New Tests
 
 When adding new functionality, you must create unit tests to verify it.

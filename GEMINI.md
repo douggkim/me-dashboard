@@ -59,6 +59,11 @@ This repository appears to be a data dashboard project, likely focused on collec
     *   **Command:** `uv run ruff check .` and `uv run ruff format .`
 6.  **Query the results:** Use the `duckdb_gemini_agent` to query the materialized data and verify the changes.
 
+## Error Handling Standards
+
+*   **No Blind Exceptions:** Pipelines should fail if they encounter wrong data. Avoid using bare `try...except` blocks that catch `Exception` without re-raising or handling specific errors.
+*   **Fail Fast:** Let Dagster handle exceptions naturally so failures are visible and can be addressed.
+
 ## Debugging Dagster
 
 Encountering issues with Dagster asset discovery or execution is common. Here's a guide to common problems and troubleshooting steps:
@@ -101,5 +106,7 @@ When creating or modifying data pipelines (especially Dagster assets), please ad
 *   **Type Hinting**: Use native Python type hints (`str`, `int`, `list`, `dict`, etc.). Avoid importing types from the `typing` module unless strictly necessary.
 *   **Helper Functions**: Break down complex pipelines into smaller, focused helper functions for readability, maintainability, and testability.
 *   **Aggregations and Column Creation**: When using Polars, employ the "named" approach for aggregations and column creation (e.g., `with_columns(new_col=pl.expr(...))`).
+*   **Bronze Layer Strategy**: Ingest data "as-is" (raw JSON/text) into the Bronze layer. Avoid heavy filtering or transformation at this stage to ensure data completeness and allow for reprocessing.
+*   **Logic Extraction**: Extract pure logic (e.g., filtering, parsing) into standalone helper functions. This improves testability and keeps asset functions focused on orchestration.
 *   **Unit Testing**: Every pipeline helper function and utility function should have corresponding unit tests using `pytest`.
 
