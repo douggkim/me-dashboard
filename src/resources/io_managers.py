@@ -11,7 +11,13 @@ import deltalake
 import fsspec
 import pandas as pd
 import polars as pl
-from dagster import ConfigurableIOManager, InputContext, MetadataValue, OutputContext
+from dagster import (
+    ConfigurableIOManager,
+    DagsterInvariantViolationError,
+    InputContext,
+    MetadataValue,
+    OutputContext,
+)
 from furl import furl
 from loguru import logger
 
@@ -288,6 +294,41 @@ class GenericJSONIOManager(ConfigurableIOManager, ABC):
     def load_input(self, context: InputContext) -> Any:
         """Load input data from the specified directory path."""
 
+    def _resolve_partition_key(self, context: InputContext | OutputContext) -> str | None:
+        """
+        Resolve the partition key from the context, handling both single and multiple partition scenarios.
+
+        Parameters
+        ----------
+        context : InputContext or OutputContext
+            The Dagster context
+
+        Returns
+        -------
+        str | None
+            The resolved partition key, or None if it could not be resolved
+        """
+        # 1. If we are in an InputContext (e.g. loading an asset for a check)
+        if isinstance(context, InputContext):
+            # The upstream_output is the context of the asset being loaded
+            if context.upstream_output and context.upstream_output.has_partition_key:
+                logger.info(f"Using Upstream output: {context.upstream_output.partition_key}")
+                return context.upstream_output.partition_key
+
+            # Fallback to the asset_partition_key if it's directly available
+            if context.has_asset_partitions:
+                try:
+                    logger.info(f"Using Asset partition key: {context.asset_partition_key}")
+                    return context.asset_partition_key
+                except DagsterInvariantViolationError as e:
+                    logger.debug(f"Could not retrieve single asset partition key (likely multiple partitions): {e}")
+
+        # 2. If we are in an OutputContext or the above failed, use the standard key
+        if context.has_partition_key:
+            return context.partition_key
+
+        return None
+
     def _get_directory_path(self, context: InputContext | OutputContext) -> str:
         """
         Get the directory path for storage based on the asset identifier.
@@ -309,12 +350,17 @@ class GenericJSONIOManager(ConfigurableIOManager, ABC):
         for segment in asset_identifiers:
             output_base_path.path.add(segment)
 
-        input_asset_partition_keys = sorted(context.asset_partition_keys)
+        if context.has_asset_partitions:
+            partition_key = self._resolve_partition_key(context)
 
-        logger.info(f"input asset partition keys: {input_asset_partition_keys}")
-
-        formatted_partition = input_asset_partition_keys[-1].replace("-", "_")
-        output_base_path.path.add(formatted_partition)
+            if partition_key:
+                formatted_partition = partition_key.replace("-", "_")
+                output_base_path.path.add(formatted_partition)
+            else:
+                input_asset_partition_keys = sorted(context.asset_partition_keys)
+                logger.info(f"Falling back to latest partition from keys: {input_asset_partition_keys}")
+                formatted_partition = input_asset_partition_keys[-1].replace("-", "_")
+                output_base_path.path.add(formatted_partition)
 
         logger.info(f"File path for {asset_identifiers} is {output_base_path!s}")
 
