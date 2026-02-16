@@ -5,6 +5,7 @@ This module defines the Pandera schemas for location-related data assets,
 specifically the silver layer movement data.
 """
 
+import pandera.engines.polars_engine as pa_pl
 import pandera.polars as pa
 import polars as pl
 from dagster_pandera import pandera_schema_to_dagster_type
@@ -13,8 +14,12 @@ from dagster_pandera import pandera_schema_to_dagster_type
 class LocationSilverSchema(pa.DataFrameModel):
     """Schema for location_data_silver asset (Parquet/Polars)."""
 
-    timestamp: pl.Datetime = pa.Field(nullable=False, description="Local timestamp when location was recorded.")
-    timestamp_utc: pl.Datetime = pa.Field(nullable=False, description="UTC timestamp when location was recorded.")
+    timestamp: pa_pl.DateTime(time_zone="UTC") = pa.Field(
+        nullable=False, description="Local timestamp when location was recorded."
+    )
+    timestamp_utc: pa_pl.DateTime(time_zone="UTC") = pa.Field(
+        nullable=False, description="UTC timestamp when location was recorded."
+    )
     latitude: float = pa.Field(
         nullable=False,
         ge=-90,

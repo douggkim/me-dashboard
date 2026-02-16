@@ -21,7 +21,10 @@ def test_location_silver_schema_valid() -> None:
         "device_id": ["iPhone_15"],
         "date": [date(2025, 1, 1)],
         "formatted_address": ["123 Main St, San Francisco, CA"],
-    })
+    }).with_columns([
+        pl.col("timestamp").dt.replace_time_zone("UTC"),
+        pl.col("timestamp_utc").dt.replace_time_zone("UTC"),
+    ])
 
     # Should not raise
     LocationSilverSchema.validate(valid_df)
@@ -39,7 +42,10 @@ def test_location_silver_schema_invalid_latitude() -> None:
         "device_id": ["iPhone_15"],
         "date": [date(2025, 1, 1)],
         "formatted_address": ["123 Main St"],
-    })
+    }).with_columns([
+        pl.col("timestamp").dt.replace_time_zone("UTC"),
+        pl.col("timestamp_utc").dt.replace_time_zone("UTC"),
+    ])
 
     with pytest.raises(pa.errors.SchemaError, match="latitude"):
         LocationSilverSchema.validate(invalid_df)
@@ -56,7 +62,10 @@ def test_location_silver_schema_missing_required_field() -> None:
         "battery_level": [0.85],
         "date": [date(2025, 1, 1)],
         "formatted_address": ["123 Main St"],
-    })
+    }).with_columns([
+        pl.col("timestamp").dt.replace_time_zone("UTC"),
+        pl.col("timestamp_utc").dt.replace_time_zone("UTC"),
+    ])
 
     with pytest.raises(pa.errors.SchemaError, match="column 'device_id' not in dataframe"):
         LocationSilverSchema.validate(invalid_df)
@@ -74,7 +83,10 @@ def test_location_silver_schema_null_where_not_allowed() -> None:
         "device_id": ["iPhone_15"],
         "date": [date(2025, 1, 1)],
         "formatted_address": ["123 Main St"],
-    })
+    }).with_columns([
+        pl.col("timestamp").dt.replace_time_zone("UTC"),
+        pl.col("timestamp_utc").dt.replace_time_zone("UTC"),
+    ])
 
     with pytest.raises(pa.errors.SchemaError, match="non-nullable column 'latitude' contains null values"):
         LocationSilverSchema.validate(invalid_df)
@@ -92,7 +104,10 @@ def test_location_silver_schema_optional_fields_null() -> None:
         "device_id": ["iPhone_15"],
         "date": [date(2025, 1, 1)],
         "formatted_address": pl.Series([None], dtype=pl.String),  # Allowed
-    })
+    }).with_columns([
+        pl.col("timestamp").dt.replace_time_zone("UTC"),
+        pl.col("timestamp_utc").dt.replace_time_zone("UTC"),
+    ])
 
     # Should not raise
     LocationSilverSchema.validate(valid_df)
