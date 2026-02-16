@@ -10,6 +10,7 @@ from furl import furl
 from src.resources.spotify_resource import SpotifyResource
 from src.utils.data_loaders import get_storage_path
 from src.utils.date import datetime_to_epoch_ms
+from src.validation.schemas.spotify_schema import spotify_silver_dagster_type
 
 
 @dg.asset(
@@ -63,10 +64,74 @@ def spotify_play_history_bronze(context: dg.AssetExecutionContext, spotify_resou
     )
 
 
+def _extract_and_hash_play_history_id(played_at: str, song_id: str) -> str:
+    """
+    Generate a unique play history ID by hashing played_at and song_id.
+
+    Parameters
+    ----------
+    played_at : str
+        Timestamp when the song was played.
+    song_id : str
+        Spotify ID of the song.
+
+    Returns
+    -------
+    str
+        MD5 hash representing the play history ID.
+    """
+    hash_input = f"{played_at}_{song_id}"
+    return hashlib.md5(hash_input.encode()).hexdigest()  # noqa: S324
+
+
+def _parse_raw_spotify_item(item: dict) -> dict:
+    """
+    Parse a single raw Spotify play history item into a processed dictionary.
+
+    Parameters
+    ----------
+    item : dict
+        A dictionary representing a single item from the Spotify API response.
+
+    Returns
+    -------
+    dict
+        A processed dictionary containing relevant play history fields.
+    """
+    track = item["track"]
+    album = track["album"]
+    played_at = item["played_at"]
+    song_id = track["id"]
+
+    play_history_id = _extract_and_hash_play_history_id(played_at, song_id)
+    duration_seconds = track["duration_ms"] / 1000
+    played_at_dt = datetime.datetime.fromisoformat(played_at)
+    played_date = played_at_dt.date()
+
+    return {
+        "play_history_id": play_history_id,
+        "played_at": played_at,
+        "played_date": played_date,
+        "duration_seconds": duration_seconds,
+        "duration_ms": track["duration_ms"],
+        "artist_names": [artist["name"] for artist in track["artists"]],
+        "song_id": song_id,
+        "song_name": track["name"],
+        "album_name": album["name"],
+        "popularity_points_by_spotify": track["popularity"],
+        "is_explicit": track["explicit"],
+        "song_release_date": album["release_date"],
+        "no_of_available_markets": len(album["available_markets"]),
+        "album_type": album["album_type"],
+        "total_tracks": album["total_tracks"],
+    }
+
+
 @dg.asset(
     name="spotify_play_history_silver",
     key_prefix=["silver", "entertainment", "spotify"],
     description="Processed version of the Spotify Playhistory",
+    dagster_type=spotify_silver_dagster_type,
     group_name="entertainment",
     kinds={"polars", "silver"},
     tags={"domain": "entertainment", "source": "spotify"},
@@ -93,14 +158,14 @@ def spotify_play_history_silver(
     ----------
     context : dg.AssetExecutionContext
         The execution context with partition information.
+    spotify_play_history_bronze : list[dict]
+        List of dictionaries containing raw responses from Spotify Playhistory API.
 
     Returns
     -------
     pl.DataFrame
         Processed DataFrame with extracted play history information.
-        Returns None if there's no recent play history.
     """
-    processed_history_data = []
     schema = {
         "play_history_id": pl.Utf8,
         "played_at": pl.Utf8,
@@ -119,45 +184,11 @@ def spotify_play_history_silver(
         "total_tracks": pl.Int64,
     }
 
-    for json_dict in spotify_play_history_bronze:
-        # Process each item in the file
-        for item in json_dict.get("items", []):
-            track = item["track"]
-            album = track["album"]
-            played_at = item["played_at"]
-            song_id = track["id"]
-
-            # Create play_history_id by hashing played_at and song_id
-            hash_input = f"{played_at}_{song_id}"
-            play_history_id = hashlib.md5(hash_input.encode()).hexdigest()  # noqa: S324
-
-            # Convert duration from ms to seconds
-            duration_seconds = track["duration_ms"] / 1000
-
-            # Parse played_at to datetime
-            played_at_dt = datetime.datetime.fromisoformat(played_at)
-
-            # Extract date for partitioning
-            played_date = played_at_dt.date()
-
-            processed_item = {
-                "play_history_id": play_history_id,
-                "played_at": played_at,
-                "played_date": played_date,
-                "duration_seconds": duration_seconds,
-                "duration_ms": track["duration_ms"],
-                "artist_names": [artist["name"] for artist in track["artists"]],
-                "song_id": song_id,
-                "song_name": track["name"],
-                "album_name": album["name"],
-                "popularity_points_by_spotify": track["popularity"],
-                "is_explicit": track["explicit"],
-                "song_release_date": album["release_date"],
-                "no_of_available_markets": len(album["available_markets"]),
-                "album_type": album["album_type"],
-                "total_tracks": album["total_tracks"],
-            }
-            processed_history_data.append(processed_item)
+    processed_history_data = [
+        _parse_raw_spotify_item(item)
+        for json_dict in spotify_play_history_bronze
+        for item in json_dict.get("items", [])
+    ]
 
     if not processed_history_data:
         context.log.warning("No additional play history found. Will be returning an empty dataframe")
@@ -175,5 +206,5 @@ def spotify_play_history_silver(
         context.log.info(f"Removed {len(play_history_df) - len(deduplicated_df)} duplicate records")
 
     return deduplicated_df.with_columns(
-        pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="ms")
+        played_at=pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
     )

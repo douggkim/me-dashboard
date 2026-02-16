@@ -97,7 +97,7 @@ class SpotifyResource(dg.ConfigurableResource):
         }
 
         response = requests.post(url.url, data=data, timeout=30)
-        if response.status_code != 200:  # noqa: PLR2004
+        if response.status_code != 200:
             raise ValueError(f"Failed to refresh token: {response.text}")
 
         token_data = response.json()
