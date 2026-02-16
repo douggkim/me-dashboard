@@ -55,7 +55,9 @@ This repository appears to be a data dashboard project, likely focused on collec
 4.  **Run Unit Tests:** Execute unit tests to ensure code correctness and prevent regressions.
     *   **Command:** `uv run python -m pytest src/tests`
     *   **Requirement:** Unit tests must be run and pass after any code implementation or modification logic.
-5.  **Query the results:** Use the `duckdb_gemini_agent` to query the materialized data and verify the changes.
+5.  **Run Linting:** Format code and check for linting errors using the **Linting Skill**.
+    *   **Command:** `uv run ruff check .` and `uv run ruff format .`
+6.  **Query the results:** Use the `duckdb_gemini_agent` to query the materialized data and verify the changes.
 
 ## Debugging Dagster
 
