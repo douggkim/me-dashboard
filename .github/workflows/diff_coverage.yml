@@ -1,0 +1,36 @@
+name: Check Diff Coverage
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run Tests with Coverage
+        run: |
+          # Set PYTHONPATH to include the current directory so src is importable
+          export PYTHONPATH=$PYTHONPATH:.
+          uv run pytest --cov=src --cov-report=xml --ignore=message-notifier --ignore=src/test_notebooks
+
+      - name: Check Diff Coverage
+        run: |
+          # Use diff-cover to check coverage on lines changed in the PR
+          # We need to fetch the base branch first to ensure diff-cover can find it
+          git fetch origin main:main
+          uv run diff-cover coverage.xml --compare-branch=main --fail-under=80

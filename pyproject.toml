@@ -37,3 +37,9 @@ dependencies = [
 dev = [
     "pytest>=8.3.3",
 ]
+
+[dependency-groups]
+dev = [
+    "diff-cover>=10.2.0",
+    "pytest-cov>=7.0.0",
+]

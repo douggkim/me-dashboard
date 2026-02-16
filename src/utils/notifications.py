@@ -1,7 +1,11 @@
+"""Utilities for sending email notifications via Amazon SES."""
+
 import os
+
 import boto3
 from botocore.exceptions import ClientError
 from loguru import logger
+
 
 def send_email_notification(
     subject: str,
@@ -9,9 +13,9 @@ def send_email_notification(
     sender: str,
     recipient: str,
     aws_region: str = "us-west-1",
-):
+) -> None:
     """Send an email notification using Amazon SES.
-    
+
     If DAGSTER_ENV is set to 'local', the email content is logged instead of sent.
 
     Args:
@@ -21,7 +25,8 @@ def send_email_notification(
         recipient (str): The email address to receive the email.
         aws_region (str): The AWS region to use.
 
-    Raises:
+    Raises
+    ------
         ClientError: If the email could not be sent.
     """
     if os.environ.get("DAGSTER_ENV") == "local":
@@ -29,27 +34,27 @@ def send_email_notification(
         return
 
     # Create a new SES resource and specify a region.
-    client = boto3.client('ses', region_name=aws_region)
+    client = boto3.client("ses", region_name=aws_region)
 
     try:
         logger.info(f"Attempting to send email via SES to {recipient} with subject '{subject}' in region {aws_region}")
         # Provide the contents of the email.
         response = client.send_email(
             Destination={
-                'ToAddresses': [
+                "ToAddresses": [
                     recipient,
                 ],
             },
             Message={
-                'Body': {
-                    'Text': {
-                        'Charset': "UTF-8",
-                        'Data': body_text,
+                "Body": {
+                    "Text": {
+                        "Charset": "UTF-8",
+                        "Data": body_text,
                     },
                 },
-                'Subject': {
-                    'Charset': "UTF-8",
-                    'Data': subject,
+                "Subject": {
+                    "Charset": "UTF-8",
+                    "Data": subject,
                 },
             },
             Source=sender,
@@ -59,6 +64,7 @@ def send_email_notification(
         raise e
     else:
         logger.info(f"Email sent successfully to {recipient}! Message ID: {response['MessageId']}")
+
 
 if __name__ == "__main__":
     send_email_notification(
