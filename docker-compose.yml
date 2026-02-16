@@ -3,7 +3,7 @@ x-project-labels: &project-labels
   project: "me-dashboard"
 services:
   dagsterdb:
-    image: postgres
+    image: postgres:17
     container_name: dagsterdb
     restart: unless-stopped  
     environment:
@@ -30,7 +30,8 @@ services:
       - /etc/pki/:/etc/pki/
       - dagster_venv:/app/.venv
     depends_on:
-      - dagsterdb
+      dagsterdb:
+        condition: service_started
     labels:
       <<: *project-labels
   minio:

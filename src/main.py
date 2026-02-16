@@ -4,11 +4,13 @@ import os
 
 import dagster as dg
 
-import src.assets as assets_module
 import src.validation.asset_checks as asset_checks_module
+from src.assets.work.github import github
+from src.assets.entertainment import playstation, spotify_play_history
 from src.jobs.delta_optimization import delta_maintenance, weekly_delta_maintenance_schedule
 from src.resources.data_loader import DataLoaderResource
 from src.resources.geo_encoder import GeoEncoderResource
+from src.resources.github_resource import GithubResource
 from src.resources.io_managers import JSONTextIOManager, PandasDeltaIOManager, PolarsDeltaIOManager
 from src.resources.psn_resource import PSNResource
 from src.resources.spotify_resource import SpotifyResource
@@ -17,7 +19,7 @@ from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 from src.sensors.email_failure_sensor import email_failure_sensor
 
 defs = dg.Definitions(
-    assets=dg.with_source_code_references(dg.load_assets_from_package_module(assets_module)),
+    assets=dg.load_assets_from_modules([playstation, spotify_play_history, github]),
     resources={
         "io_manager_pl": PolarsDeltaIOManager(
             output_base_path=os.getenv("OUTPUT_BASE_PATH"),
@@ -38,6 +40,9 @@ defs = dg.Definitions(
             refresh_token=dg.EnvVar("SPOTIFY_REFRESH_TOKEN"),
         ),
         "psn_resource": PSNResource(refresh_token=dg.EnvVar("PSN_REFRESH_TOKEN")),
+        "github_resource": GithubResource(
+            github_token=dg.EnvVar("GITHUB_TOKEN"), github_username=dg.EnvVar("GITHUB_USERNAME")
+        ),
         "geo_encoder": GeoEncoderResource(
             google_maps_api_key=dg.EnvVar("GOOGLE_MAPS_API_KEY"),
             s3_bucket=dg.EnvVar("AWS_S3_BUCKET_NAME"),
