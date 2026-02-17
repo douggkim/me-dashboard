@@ -2,6 +2,7 @@ name: Deploy Screen Time Lambda
 
 on:
   push:
+    branches: [main]
     paths: ['lambda_code/screen-time-collection.py']
   workflow_dispatch:
 
