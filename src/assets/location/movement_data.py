@@ -63,7 +63,19 @@ def location_data_silver(
     base_path = get_storage_path(dataset_name="location", table_name="bronze")
     partition_path = f"{base_path}/{partition_date}"
 
-    empty_df = pl.DataFrame(schema={"timestamp": pl.Datetime, "device_id": pl.String})
+    # Define empty DataFrame with correct schema to satisfy validation
+    empty_schema = {
+        "timestamp": pl.Datetime(time_zone="UTC"),
+        "timestamp_utc": pl.Datetime(time_zone="UTC"),
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "speed": pl.Float64,
+        "battery_level": pl.Float64,
+        "device_id": pl.String,
+        "date": pl.Date,
+        "formatted_address": pl.String,
+    }
+    empty_df = pl.DataFrame(schema=empty_schema)
 
     # Fetch raw data from bronze storage
     all_locations = fetch_bronze_location_data(context, partition_path)
@@ -111,8 +123,8 @@ def location_data_silver(
                 "locality": "city",
             })
 
-        except Exception:
-            context.log.exception("Geocoding enrichment failed")
+        except Exception as e:
+            context.log.exception(f"Geocoding enrichment failed: {e}")
             # Return DataFrame without enrichment if geocoding fails
             context.log.warning("Returning location data without geocoding enrichment")
             return location_df
@@ -277,13 +289,24 @@ def clean_location_dataframe(records: list[dict]) -> pl.DataFrame:
         A cleaned and validated Polars DataFrame.
     """
     if not records:
-        return pl.DataFrame(schema={"timestamp": pl.Datetime, "device_id": pl.String})
+        empty_schema = {
+            "timestamp": pl.Datetime(time_zone="UTC"),
+            "timestamp_utc": pl.Datetime(time_zone="UTC"),
+            "latitude": pl.Float64,
+            "longitude": pl.Float64,
+            "speed": pl.Float64,
+            "battery_level": pl.Float64,
+            "device_id": pl.String,
+            "date": pl.Date,
+            "formatted_address": pl.String,
+        }
+        return pl.DataFrame(schema=empty_schema)
 
     location_df = pl.DataFrame(records, schema_overrides={"timestamp": pl.String})
 
     # Data type conversions and validation
     location_df = location_df.with_columns(
-        timestamp=pl.col("timestamp").str.to_datetime(),
+        timestamp=pl.col("timestamp").str.to_datetime().dt.replace_time_zone("UTC"),
         timestamp_utc=pl.col("timestamp").str.to_datetime().dt.replace_time_zone("UTC"),
         latitude=pl.col("latitude").cast(pl.Float64),
         longitude=pl.col("longitude").cast(pl.Float64),
