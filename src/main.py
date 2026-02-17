@@ -7,6 +7,7 @@ import dagster as dg
 import src.validation.asset_checks as asset_checks_module
 from src.assets.entertainment import playstation, spotify_play_history
 from src.assets.location import movement_data
+from src.assets.screen_time import screen_time_assets
 from src.assets.work.github import github
 from src.jobs.delta_optimization import delta_maintenance, weekly_delta_maintenance_schedule
 from src.resources.data_loader import DataLoaderResource
@@ -19,7 +20,7 @@ from src.sensors.email_failure_sensor import email_failure_sensor
 from src.utils.aws import AWSCredentialFormat, get_aws_storage_options
 
 defs = dg.Definitions(
-    assets=dg.load_assets_from_modules([movement_data, playstation, spotify_play_history, github]),
+    assets=dg.load_assets_from_modules([movement_data, playstation, spotify_play_history, github, screen_time_assets]),
     resources={
         "io_manager_pl": PolarsDeltaIOManager(
             output_base_path=os.getenv("OUTPUT_BASE_PATH"),

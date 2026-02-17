@@ -15,3 +15,10 @@ paths:
     bronze:
       local: "./data/testing/bronze/workout"
       prod: "s3://me-dashboard-doug/bronze/workout"
+  screen_time:
+    iphone_bronze:
+      local: "./data/testing/bronze/screen-time/iphone"
+      prod: "s3://me-dashboard-doug/bronze/screen-time/iphone"
+    mac_bronze:
+      local: "./data/testing/bronze/screen-time/mac"
+      prod: "s3://me-dashboard-doug/bronze/screen-time/mac"
