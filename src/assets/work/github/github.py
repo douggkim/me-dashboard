@@ -132,10 +132,11 @@ def filter_gh_events_by_date(events: list, partition_key: str) -> list:
     Returns
     -------
     list
-        Filtered list of events falling within the partition date.
+        Filtered list of events falling within the partition date range.
+        Currently set to: [partition_key - 1 day, partition_key).
     """
-    partition_date_start = datetime.datetime.strptime(partition_key, "%Y-%m-%d").replace(tzinfo=datetime.UTC)
-    partition_date_end = partition_date_start + datetime.timedelta(days=1)
+    partition_date_end = datetime.datetime.strptime(partition_key, "%Y-%m-%d").replace(tzinfo=datetime.UTC)
+    partition_date_start = partition_date_end - datetime.timedelta(days=1)
 
     filtered_events = []
     for event in events:
