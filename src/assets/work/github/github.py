@@ -15,7 +15,7 @@ from src.validation.schemas.github_schema import github_silver_dagster_type
     group_name="work_github",
     key_prefix=["bronze", "work", "github"],
     io_manager_key="io_manager_json_txt",
-    partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=1, timezone="Etc/UTC"),
+    partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=0, timezone="Etc/UTC"),
     automation_condition=AutomationCondition.on_cron("0 0 * * *"),  # Run daily at midnight
 )
 def github_events(context: AssetExecutionContext, github_resource: GithubResource) -> list:
@@ -135,7 +135,8 @@ def filter_gh_events_by_date(events: list, partition_key: str) -> list:
     Returns
     -------
     list
-        Filtered list of events falling within the partition date.
+        Filtered list of events falling within the partition date range.
+        Currently set to: [partition_key - 1 day, partition_key).
     """
     partition_date_start = datetime.datetime.strptime(partition_key, "%Y-%m-%d").replace(tzinfo=datetime.UTC)
     partition_date_end = partition_date_start + datetime.timedelta(days=1)

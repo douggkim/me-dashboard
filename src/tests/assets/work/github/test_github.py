@@ -44,6 +44,11 @@ def test_filter_gh_events_by_date(sample_events: list[dict]) -> None:
         created_at = datetime.datetime.fromisoformat(event["created_at"])
         assert created_at.date() == datetime.date(2026, 2, 16)
 
+    # Test that partition 2026-02-16 doesn't include 2026-02-16 events anymore
+    # because it now looks for 2026-02-15 events.
+    filtered_no_match = filter_gh_events_by_date(sample_events, "2026-02-16")
+    assert len(filtered_no_match) == 0
+
     # Test a date that shouldn't match (e.g., 2020-01-01)
     partition_key_empty = "2020-01-01"
     filtered_empty = filter_gh_events_by_date(sample_events, partition_key_empty)
