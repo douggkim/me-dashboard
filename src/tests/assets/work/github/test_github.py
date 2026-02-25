@@ -265,7 +265,7 @@ def test_transform_github_events_to_silver(mock_github_resource: MagicMock) -> N
     ]
 
     mock_github_resource.get_commit.return_value = {"stats": {"additions": 5, "deletions": 1}, "files": [{}]}
-    context = dg.build_asset_context(partition_key="2026-02-17")
+    context = dg.build_asset_context(partition_key="2026-02-16")
 
     github_event_df = transform_github_events_to_silver(
         github_events=events,
@@ -314,7 +314,7 @@ def test_transform_github_events_to_silver_deduplication(mock_github_resource: M
         },
     ]
 
-    context = dg.build_asset_context(partition_key="2026-02-17")
+    context = dg.build_asset_context(partition_key="2026-02-16")
 
     github_event_df = transform_github_events_to_silver(
         github_events=events,
