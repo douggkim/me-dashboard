@@ -192,7 +192,9 @@ def spotify_play_history_silver(
 
     if not processed_history_data:
         context.log.warning("No additional play history found. Will be returning an empty dataframe")
-        return pl.DataFrame(schema=schema)
+        return pl.DataFrame(schema=schema).with_columns(
+            played_at=pl.col("played_at").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
+        )
 
     play_history_df = pl.from_dicts(
         processed_history_data,
