@@ -1,5 +1,6 @@
 """Dagster assets for collecting and processing GitHub events and repository statistics."""
 
+import dataclasses
 import datetime
 
 import dagster as dg
@@ -52,7 +53,7 @@ def github_events(context: AssetExecutionContext, github_resource: GithubResourc
     group_name="work_github",
     key_prefix=["bronze", "work", "github"],
     io_manager_key="io_manager_json_txt",
-    partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=1, timezone="Etc/UTC"),
+    partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=0, timezone="Etc/UTC"),
     ins={"github_events": dg.AssetIn(key_prefix=["bronze", "work", "github"], input_manager_key="io_manager_json_txt")},
     automation_condition=AutomationCondition.on_cron("0 0 * * *"),  # Run daily at midnight
 )
@@ -290,6 +291,92 @@ def _fetch_commit_stats(
         return 0, 0, 0
 
 
+@dataclasses.dataclass
+class CommitMetrics:
+    """Base metrics for a commit."""
+
+    event_id: str
+    repo: str
+    date: datetime.date
+    created_at_dt: datetime.datetime
+    branch: str
+    branch_type: str
+
+
+def _extract_base_commit_metrics(event: dict) -> CommitMetrics:
+    """
+    Extract common metrics from a GitHub event.
+
+    Parameters
+    ----------
+    event : dict
+        A GitHub event dictionary.
+
+    Returns
+    -------
+    CommitMetrics
+        Dataclass containing base metrics
+    """
+    event_id = event.get("id")
+    repo = event.get("repo", {}).get("name")
+
+    created_at_dt = datetime.datetime.fromisoformat(event.get("created_at"))
+    date = created_at_dt.date()
+
+    branch = get_branch_name_from_event(event)
+
+    return CommitMetrics(
+        event_id=event_id,
+        repo=repo,
+        date=date,
+        created_at_dt=created_at_dt,
+        branch=branch,
+        branch_type=categorize_branch(branch),
+    )
+
+
+def _build_commit_row(
+    metrics: CommitMetrics,
+    sha: str | None,
+    additions: int,
+    deletions: int,
+    file_count: int,
+) -> dict:
+    """Build a processed row for a single commit.
+
+    Parameters
+    ----------
+    metrics: CommitMetrics
+        Dataclass containing the event's base metrics
+    sha : str | None
+        The commit SHA.
+    additions : int
+        Number of additions.
+    deletions : int
+        Number of deletions.
+    file_count : int
+        Number of changed files.
+
+    Returns
+    -------
+    dict
+        A dictionary representation of the commit row.
+    """
+    return {
+        "date": metrics.date,
+        "created_at": metrics.created_at_dt,
+        "id": metrics.event_id,
+        "event_type": "PushEvent",
+        "target_repo": metrics.repo,
+        "target_branch": metrics.branch,
+        "branch_type": metrics.branch_type,
+        "commit_sha": sha,
+        "code_additions": additions,
+        "code_deletions": deletions,
+        "number_of_changed_files": file_count,
+    }
+
+
 def _process_push_event(
     event: dict,
     github_resource: GithubResource,
@@ -315,34 +402,18 @@ def _process_push_event(
     rows = []
     payload = event.get("payload", {})
     commits = payload.get("commits", [])
-    repo = event.get("repo", {}).get("name")
-    event_id = event.get("id")
-    created_at_dt = datetime.datetime.fromisoformat(event.get("created_at"))
-    date = created_at_dt.date()
-    branch = get_branch_name_from_event(event)
-    branch_type = categorize_branch(branch)
 
-    owner, repo_name = repo.split("/", 1)
+    metrics: CommitMetrics = _extract_base_commit_metrics(event)
+    owner, repo_name = metrics.repo.split("/", 1)
 
     # Use payload['head'] if commits list is empty (common in some bronze data)
     if not commits:
         head_sha = payload.get("head")
         if head_sha:
-            context.log.info(f"PushEvent {event_id} has no commits array, using head SHA: {head_sha[:7]}")
+            context.log.info(f"PushEvent {metrics.event_id} has no commits array, using head SHA: {head_sha[:7]}")
             additions, deletions, file_count = _fetch_commit_stats(owner, repo_name, head_sha, github_resource, context)
-            rows.append({
-                "date": date,
-                "created_at": created_at_dt,
-                "id": event_id,
-                "event_type": "PushEvent",
-                "target_repo": repo,
-                "target_branch": branch,
-                "branch_type": branch_type,
-                "commit_sha": head_sha,
-                "code_additions": additions,
-                "code_deletions": deletions,
-                "number_of_changed_files": file_count,
-            })
+            row = _build_commit_row(metrics, head_sha, additions, deletions, file_count)
+            rows.append(row)
         return rows
 
     for commit in commits:
@@ -351,19 +422,8 @@ def _process_push_event(
             continue
 
         additions, deletions, file_count = _fetch_commit_stats(owner, repo_name, sha, github_resource, context)
-        rows.append({
-            "date": date,
-            "created_at": created_at_dt,
-            "id": event_id,
-            "event_type": "PushEvent",
-            "target_repo": repo,
-            "target_branch": branch,
-            "branch_type": branch_type,
-            "commit_sha": sha,
-            "code_additions": additions,
-            "code_deletions": deletions,
-            "number_of_changed_files": file_count,
-        })
+        row = _build_commit_row(metrics, sha, additions, deletions, file_count)
+        rows.append(row)
     return rows
 
 
@@ -525,7 +585,8 @@ def transform_github_events_to_silver(
     group_name="work_github",
     io_manager_key="io_manager_pl",
     dagster_type=github_silver_dagster_type,
-    partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=1, timezone="Etc/UTC"),
+    partitions_def=DailyPartitionsDefinition(start_date="2025-05-05", end_offset=0, timezone="Etc/UTC"),
+    automation_condition=AutomationCondition.eager(),
     ins={"github_events": dg.AssetIn(key_prefix=["bronze", "work", "github"], input_manager_key="io_manager_json_txt")},
     metadata={"primary_keys": ["primary_key"], "partition_cols": ["date"]},
 )
