@@ -447,12 +447,14 @@ class JSONTextIOManager(GenericJSONIOManager):
             fs.makedirs(directory_path, exist_ok=True)
 
         now = datetime.now(UTC)
-        string_date = now.strftime("%Y%m%d_%H%M")
+
+        # Use partition key for filename inside partitioned directories, otherwise fallback to current time
+        partition_key = self._resolve_partition_key(context)
+        file_base_name = f"{partition_key}_{now.strftime('%H%M')}" if partition_key else now.strftime("%Y%m%d_%H%M")
 
         # Handle different object types
         if isinstance(obj, (dict, list)):
-            # Use current timestamp for filename
-            file_name = f"{string_date}.json"
+            file_name = f"{file_base_name}.json"
             file_path = f"{directory_path}/{file_name}"
 
             # Save JSON data
@@ -462,11 +464,11 @@ class JSONTextIOManager(GenericJSONIOManager):
             context.add_output_metadata({
                 "file_path": MetadataValue.text(file_path),
                 "timestamp": now.strftime("%Y%m%d_%H%M"),
+                "partition_used": str(bool(partition_key)),
             })
         elif isinstance(obj, str):
             # For text data
-            # Use current timestamp for filename
-            file_name = f"{string_date}.json"
+            file_name = f"{file_base_name}.txt"
             file_path = f"{directory_path}/{file_name}"
 
             # Save text data
@@ -477,6 +479,7 @@ class JSONTextIOManager(GenericJSONIOManager):
                 "file_path": MetadataValue.text(file_path),
                 "file_type": "text",
                 "timestamp": now.strftime("%Y%m%d_%H%M"),
+                "partition_used": str(bool(partition_key)),
             })
 
         else:
