@@ -23,7 +23,11 @@ from src.validation.schemas.screen_time_schema import (
     key_prefix=["silver", "work"],
     io_manager_key="io_manager_pl",
     dagster_type=ScreenTimeIphoneSilverDagsterType,
-    description="Processed iPhone screen time data",
+    description="""Processed iPhone screen time data
+    Refresh Cadence:
+    - iPhone data for partition date `D` (e.g., 02/24) arrives on date `D` at 7 AM UTC.
+    - The automation runs daily at 8 AM UTC, shortly after the data lands.
+    - `end_offset=1` ensures the partition for date `D` is available to process on date `D`.""",
     group_name="work",
     kinds={"polars", "silver"},
     tags={"domain": "biometrics", "source": "iphone"},
@@ -33,11 +37,16 @@ from src.validation.schemas.screen_time_schema import (
     },
     owners=["doug@randomplace.com"],
     partitions_def=dg.DailyPartitionsDefinition(start_date="2026-01-01", end_offset=1, timezone="Etc/UTC"),
-    automation_condition=dg.AutomationCondition.on_cron("0 6 * * *"),  # Run daily at 6 AM
+    automation_condition=dg.AutomationCondition.on_cron("0 8 * * *"),  # Run daily at 8 AM UTC
 )
 def screen_time_iphone(context: dg.AssetExecutionContext) -> pl.DataFrame:
     """
     Process iPhone screen time data from Bronze to Silver.
+
+    Refresh Cadence:
+    - iPhone data for partition date `D` (e.g., 02/24) arrives on date `D` at 7 AM UTC.
+    - The automation runs daily at 8 AM UTC, shortly after the data lands.
+    - `end_offset=1` ensures the partition for date `D` is available to process on date `D`.
 
     Reads raw JSON files, deduplicates by device_id and usage_date (keeping latest updated_at),
     and formats for the silver layer.
@@ -89,7 +98,12 @@ def screen_time_iphone(context: dg.AssetExecutionContext) -> pl.DataFrame:
     key_prefix=["silver", "work"],
     io_manager_key="io_manager_pl",
     dagster_type=ScreenTimeMacSilverDagsterType,
-    description="Processed Mac screen time data",
+    description="""Processed Mac screen time data
+    Refresh Cadence:
+    - Mac data for partition date `D` (e.g., 02/24) arrives on date `D+1` at 9 AM UTC (e.g., 02/25 9 AM UTC).
+    - The automation runs daily at 10 AM UTC, shortly after the data lands.
+    - `end_offset=0` ensures that on date `D+1`, the latest available partition is `D`.
+    """,
     group_name="work",
     kinds={"polars", "silver"},
     tags={"domain": "biometrics", "source": "mac"},
@@ -98,12 +112,17 @@ def screen_time_iphone(context: dg.AssetExecutionContext) -> pl.DataFrame:
         "partition_cols": ["usage_date"],
     },
     owners=["doug@randomplace.com"],
-    partitions_def=dg.DailyPartitionsDefinition(start_date="2026-01-01", end_offset=1, timezone="Etc/UTC"),
-    automation_condition=dg.AutomationCondition.on_cron("0 6 * * *"),  # Run daily at 6 AM
+    partitions_def=dg.DailyPartitionsDefinition(start_date="2026-01-01", end_offset=0, timezone="Etc/UTC"),
+    automation_condition=dg.AutomationCondition.on_cron("0 10 * * *"),  # Run daily at 10 AM UTC
 )
 def screen_time_mac(context: dg.AssetExecutionContext) -> pl.DataFrame:
     """
     Process Mac screen time data from Bronze to Silver.
+
+    Refresh Cadence:
+    - Mac data for partition date `D` (e.g., 02/24) arrives on date `D+1` at 9 AM UTC (e.g., 02/25 9 AM UTC).
+    - The automation runs daily at 10 AM UTC, shortly after the data lands.
+    - `end_offset=0` ensures that on date `D+1`, the latest available partition is `D`.
 
     Reads raw JSON files, deduplicates by device_id and usage_date (keeping latest updated_at),
     explodes the 'data' list (per app usage), and formats for the silver layer.
@@ -340,7 +359,6 @@ def _process_mac_records(context: dg.AssetExecutionContext, raw_data: list[dict]
                 parts = bundle_id.split(".")
                 app_name = parts[-1] if parts else bundle_id
 
-                # ID = hash(device_id, usage_date, bundle_id)
                 hash_input = f"{device_id}_{usage_date}_{bundle_id}"
                 record_id = hashlib.md5(hash_input.encode()).hexdigest()  # noqa: S324
 
