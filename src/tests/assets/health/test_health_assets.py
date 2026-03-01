@@ -50,19 +50,19 @@ def test_extract_csv_from_multipart() -> None:
         "Content-Disposition: form-data\n"
         "Content-Type: text/csv\n"
         "\n"
-        "Date,Active Energy (kcal),Apple Exercise Time (min)\n"
+        "Date/Time,Active Energy (kcal),Apple Exercise Time (min)\n"
         "2026-02-16 12:00:00,10.5,\n"
         "--Boundary-123--\n"
     )
     result = extract_csv_from_multipart(raw_payload)
-    assert result == "Date,Active Energy (kcal),Apple Exercise Time (min)\n2026-02-16 12:00:00,10.5,"
+    assert result == "Date/Time,Active Energy (kcal),Apple Exercise Time (min)\n2026-02-16 12:00:00,10.5,"
 
 
 def test_rename_columns() -> None:
     """Test column renaming logic."""
-    cols = ["Date", "Active Energy (kcal)", "Running Speed (mi/hr)"]
+    cols = ["Date/Time", "Active Energy (kcal)", "Running Speed (mi/hr)"]
     mapping = rename_columns(cols)
-    assert mapping["Date"] == "date_time_pst"
+    assert mapping["Date/Time"] == "date_time_pst"
     assert mapping["Active Energy (kcal)"] == "active_energy_kcal"
     assert mapping["Running Speed (mi/hr)"] == "running_speed_mi_hr"
 
@@ -72,7 +72,7 @@ def test_health_silver(mock_get_storage_path: MagicMock, mock_load_csv: MagicMoc
     mock_get_storage_path.return_value = "dummy/path"
 
     header = (
-        "Date,Active Energy (kcal),Apple Exercise Time (min),Apple Move Time (min),"
+        "Date/Time,Active Energy (kcal),Apple Exercise Time (min),Apple Move Time (min),"
         "Apple Stand Hour (hours),Apple Stand Time (min),Body Temperature (ºF),"
         "Breathing Disturbances (count),Environmental Audio Exposure (dBASPL),"
         "Flights Climbed (count),Headphone Audio Exposure (dBASPL),Heart Rate [Min] (bpm),"
@@ -119,16 +119,16 @@ def test_health_silver_read_csv_errors(
     mock_get_storage_path.return_value = "dummy/path"
 
     # 1 valid, 1 compute error, 1 general error, 1 empty clean_csv
-    valid_csv = "Date,Active Energy (kcal)\n2026-02-16 12:00:00,15.5"
+    valid_csv = "Date/Time,Active Energy (kcal)\n2026-02-16 12:00:00,15.5"
     mock_load_csv.return_value = [
-        "Date,Active Energy (kcal)\n2026-02-16 12:00:00,10.0",  # Trigger compute error
-        "Date,Active Energy (kcal)\n2026-02-16 13:00:00,20.0",  # Trigger exception
+        "Date/Time,Active Energy (kcal)\n2026-02-16 12:00:00,10.0",  # Trigger compute error
+        "Date/Time,Active Energy (kcal)\n2026-02-16 13:00:00,20.0",  # Trigger exception
         valid_csv,  # Valid
         "No,Valid,Headers",  # Empty clean CSV after extraction
     ]
 
     valid_dicts = {k: [None] for k in HEALTH_CSV_SCHEMA}
-    valid_dicts["Date"] = ["2026-02-16 12:00:00"]
+    valid_dicts["Date/Time"] = ["2026-02-16 12:00:00"]
     valid_dicts["Active Energy (kcal)"] = [15.5]
 
     mock_read_csv.side_effect = [

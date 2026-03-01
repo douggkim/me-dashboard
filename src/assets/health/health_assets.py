@@ -16,7 +16,8 @@ from src.utils.data_loaders import get_storage_path
 from src.validation.schemas.health_schema import HealthSilverDagsterType
 
 HEALTH_CSV_SCHEMA = {
-    "Date": pl.Utf8,
+    # It changed from "Date" to "Date/Time", so we map the new string.
+    "Date/Time": pl.Utf8,
     "Active Energy (kcal)": pl.Float64,
     "Apple Exercise Time (min)": pl.Float64,
     "Apple Move Time (min)": pl.Float64,
@@ -250,7 +251,7 @@ def extract_csv_from_multipart(raw_string: str) -> str:
     lines = raw_string.splitlines()
     start_idx = 0
     for i, line in enumerate(lines):
-        if line.startswith(("Date,", "Type,")):
+        if line.startswith(("Date,", "Date/Time,", "Type,")):
             start_idx = i
             break
 
@@ -285,7 +286,7 @@ def rename_columns(cols: list[str]) -> dict[str, str]:
         name = re.sub(r"_+", "_", name)
         name = name.strip("_")
 
-        if name == "date":
+        if name in {"date", "date_time"}:
             name = "date_time_pst"
         elif name == "start":
             name = "start_pst"

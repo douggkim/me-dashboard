@@ -51,11 +51,11 @@ def test_extract_csv_from_multipart() -> None:
         "Content-Type: text/csv\n"
         "\n"
         "Type,Start,End,Duration\n"
-        "Running,2/16/26 12:00,2/16/26 13:00,60:00\n"
+        "Running,2026-02-16 12:00,2026-02-16 13:00,60:00\n"
         "--Boundary-123--\n"
     )
     result = extract_csv_from_multipart(raw_payload)
-    assert result == "Type,Start,End,Duration\nRunning,2/16/26 12:00,2/16/26 13:00,60:00"
+    assert result == "Type,Start,End,Duration\nRunning,2026-02-16 12:00,2026-02-16 13:00,60:00"
 
 
 def test_rename_columns() -> None:
@@ -80,9 +80,9 @@ def test_workout_silver(mock_get_storage_path: MagicMock, mock_load_csv: MagicMo
         "Elevation Descended (m)"
     )
     mock_load_csv.return_value = [
-        f"{header}\nRunning,2/16/26 12:00,2/16/26 12:30,30:00"
-        ",,,,,,,,,,,,,\nWalking,2/16/26 15:00,2/16/26 15:15,15:00,,,,,,,,,,,,,",
-        f"{header}\nRunning,2/16/26 12:00,2/16/26 12:30,30:00,,,,,,,,,,,,,",  # duplicate
+        f"{header}\nRunning,2026-02-16 12:00,2026-02-16 12:30,30:00"
+        ",,,,,,,,,,,,,\nWalking,2026-02-16 15:00,2026-02-16 15:15,15:00,,,,,,,,,,,,,",
+        f"{header}\nRunning,2026-02-16 12:00,2026-02-16 12:30,30:00,,,,,,,,,,,,,",  # duplicate
     ]
 
     with dg.build_asset_context(partition_key="2026-02-16") as context:
@@ -117,16 +117,16 @@ def test_workout_silver_read_csv_errors(
     mock_get_storage_path.return_value = "dummy/path"
 
     mock_load_csv.return_value = [
-        "Type,Start,End\nRunning,2/16/26 12:00,2/16/26 13:00",  # trigger compute error
-        "Type,Start,End\nWalking,2/16/26 13:00,2/16/26 14:00",  # trigger exception
-        "Type,Start,End\nSwimming,2/16/26 14:00,2/16/26 15:00",  # valid
+        "Type,Start,End\nRunning,2026-02-16 12:00,2026-02-16 13:00",  # trigger compute error
+        "Type,Start,End\nWalking,2026-02-16 13:00,2026-02-16 14:00",  # trigger exception
+        "Type,Start,End\nSwimming,2026-02-16 14:00,2026-02-16 15:00",  # valid
         "No,Valid,Headers",  # clean_csv empty
     ]
 
     valid_dicts = {k: [None] for k in WORKOUT_CSV_SCHEMA}
     valid_dicts["Type"] = ["Swimming"]
-    valid_dicts["Start"] = ["02/16/26 14:00"]
-    valid_dicts["End"] = ["02/16/26 15:00"]
+    valid_dicts["Start"] = ["2026-02-16 14:00"]
+    valid_dicts["End"] = ["2026-02-16 15:00"]
 
     mock_read_csv.side_effect = [
         pl.exceptions.ComputeError("Mock Compute Error"),
