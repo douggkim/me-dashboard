@@ -236,7 +236,7 @@ def extract_csv_from_multipart(raw_string: str) -> str:
     lines = raw_string.splitlines()
     start_idx = 0
     for i, line in enumerate(lines):
-        if line.startswith(("Date,", "Type,")):
+        if line.startswith(("Date,", "Date/Time,", "Type,")):
             start_idx = i
             break
 
