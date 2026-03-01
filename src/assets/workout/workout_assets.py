@@ -82,9 +82,24 @@ def workout_silver(context: dg.AssetExecutionContext) -> pl.DataFrame:
 
     empty_schema = {
         "workout_activity_id": pl.Utf8,
+        "type": pl.Utf8,
         "start_pst": pl.Datetime(),
         "end_pst": pl.Datetime(),
+        "duration": pl.Utf8,
         "activity_date": pl.Utf8,
+        "total_energy_kcal": pl.Float64,
+        "active_energy_kcal": pl.Float64,
+        "max_heart_rate_bpm": pl.Float64,
+        "avg_heart_rate_bpm": pl.Float64,
+        "distance_km": pl.Float64,
+        "avg_speed_km_hr": pl.Float64,
+        "step_count_count": pl.Float64,
+        "step_cadence_spm": pl.Float64,
+        "swimming_stroke_count_count": pl.Float64,
+        "swim_stoke_cadence_spm": pl.Float64,
+        "flights_climbed_count": pl.Float64,
+        "elevation_ascended_m": pl.Float64,
+        "elevation_descended_m": pl.Float64,
     }
 
     if not raw_data:
@@ -121,13 +136,10 @@ def workout_silver(context: dg.AssetExecutionContext) -> pl.DataFrame:
 
     # Cast datetimes: format is often "%m/%d/%y %H:%M" such as "9/6/25 16:45"
     # We can try to specify a format string, or use the strptime with `%m/%d/%y %H:%M`
-    try:
-        combined_df = combined_df.with_columns([
-            pl.col("start_pst").str.strptime(pl.Datetime, "%m/%d/%y %H:%M", strict=False),
-            pl.col("end_pst").str.strptime(pl.Datetime, "%m/%d/%y %H:%M", strict=False),
-        ])
-    except Exception:  # noqa: BLE001
-        context.log.warning("Failed standard time conversion, falling back to mixed conversion.")
+    combined_df = combined_df.with_columns([
+        pl.col("start_pst").str.strptime(pl.Datetime, "%m/%d/%y %H:%M", strict=False),
+        pl.col("end_pst").str.strptime(pl.Datetime, "%m/%d/%y %H:%M", strict=False),
+    ])
 
     # Add activity_date partition col
     combined_df = combined_df.with_columns([pl.col("start_pst").dt.strftime("%Y-%m-%d").alias("activity_date")])

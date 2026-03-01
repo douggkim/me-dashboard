@@ -3,10 +3,13 @@
 from unittest.mock import MagicMock, patch
 
 import dagster as dg
+import polars as pl
 import pytest
 
 from src.assets.workout.workout_assets import (
+    WORKOUT_CSV_SCHEMA,
     extract_csv_from_multipart,
+    load_bronze_csv_files,
     rename_columns,
     workout_silver,
 )
@@ -77,7 +80,8 @@ def test_workout_silver(mock_get_storage_path: MagicMock, mock_load_csv: MagicMo
         "Elevation Descended (m)"
     )
     mock_load_csv.return_value = [
-        f"{header}\nRunning,2/16/26 12:00,2/16/26 12:30,30:00,,,,,,,,,,,,,\nWalking,2/16/26 15:00,2/16/26 15:15,15:00,,,,,,,,,,,,,",
+        f"{header}\nRunning,2/16/26 12:00,2/16/26 12:30,30:00"
+        ",,,,,,,,,,,,,\nWalking,2/16/26 15:00,2/16/26 15:15,15:00,,,,,,,,,,,,,",
         f"{header}\nRunning,2/16/26 12:00,2/16/26 12:30,30:00,,,,,,,,,,,,,",  # duplicate
     ]
 
@@ -91,3 +95,80 @@ def test_workout_silver(mock_get_storage_path: MagicMock, mock_load_csv: MagicMo
     rows = workout_df.to_dicts()
     assert rows[0]["type"] == "Running"
     assert rows[0]["activity_date"] == "2026-02-16"
+
+
+def test_workout_silver_empty_data(mock_get_storage_path: MagicMock, mock_load_csv: MagicMock) -> None:
+    """Test Workout silver asset with no raw data."""
+    mock_get_storage_path.return_value = "dummy/path"
+    mock_load_csv.return_value = []
+
+    with dg.build_asset_context(partition_key="2026-02-16") as context:
+        workout_df = workout_silver(context=context)
+
+    assert workout_df.height == 0
+    assert "workout_activity_id" in workout_df.columns
+
+
+@patch("src.assets.workout.workout_assets.pl.read_csv")
+def test_workout_silver_read_csv_errors(
+    mock_read_csv: MagicMock, mock_get_storage_path: MagicMock, mock_load_csv: MagicMock
+) -> None:
+    """Test Workout silver asset handling of Polars CSV parsing errors."""
+    mock_get_storage_path.return_value = "dummy/path"
+
+    mock_load_csv.return_value = [
+        "Type,Start,End\nRunning,2/16/26 12:00,2/16/26 13:00",  # trigger compute error
+        "Type,Start,End\nWalking,2/16/26 13:00,2/16/26 14:00",  # trigger exception
+        "Type,Start,End\nSwimming,2/16/26 14:00,2/16/26 15:00",  # valid
+        "No,Valid,Headers",  # clean_csv empty
+    ]
+
+    valid_dicts = {k: [None] for k in WORKOUT_CSV_SCHEMA}
+    valid_dicts["Type"] = ["Swimming"]
+    valid_dicts["Start"] = ["02/16/26 14:00"]
+    valid_dicts["End"] = ["02/16/26 15:00"]
+
+    mock_read_csv.side_effect = [
+        pl.exceptions.ComputeError("Mock Compute Error"),
+        Exception("Mock General Error"),
+        pl.DataFrame(valid_dicts, schema=WORKOUT_CSV_SCHEMA),
+    ]
+
+    with dg.build_asset_context(partition_key="2026-02-16") as context:
+        workout_df = workout_silver(context=context)
+
+    # Should only contain the valid one
+    assert workout_df.height == 1
+
+
+@patch("src.assets.workout.workout_assets.get_aws_storage_options")
+@patch("src.assets.workout.workout_assets.fsspec.filesystem")
+def test_load_bronze_csv_files(mock_filesystem: MagicMock, mock_aws: MagicMock) -> None:
+    """Test the load_bronze_csv_files utility under various conditions."""
+    mock_fs = MagicMock()
+    mock_filesystem.return_value = mock_fs
+
+    with dg.build_asset_context(partition_key="2026-02-16") as context:
+        mock_aws.return_value = {}
+        mock_fs.exists.return_value = False
+        assert load_bronze_csv_files(context, "s3://dummy/path") == []
+
+        # Test 2: Glob raises exception
+        mock_fs.exists.return_value = True
+        mock_fs.glob.side_effect = Exception("Glob Error")
+        assert load_bronze_csv_files(context, "s3://dummy/path") == []
+
+        # Test 3: fs.open raises exception for one file, succeeds for another
+        mock_fs.glob.side_effect = None
+        mock_fs.glob.return_value = ["file1.csv", "file2.csv"]
+
+        mock_file_1 = MagicMock()
+        mock_file_1.__enter__.return_value.read.return_value = "csv_data_1"
+
+        mock_file_2 = MagicMock()
+        mock_file_2.__enter__.side_effect = Exception("Read Error")
+
+        mock_fs.open.side_effect = [mock_file_1, mock_file_2]
+
+        result = load_bronze_csv_files(context, "s3://dummy/path")
+        assert result == ["csv_data_1"]
