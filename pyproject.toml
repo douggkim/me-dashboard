@@ -43,3 +43,8 @@ dev = [
     "diff-cover>=10.2.0",
     "pytest-cov>=7.0.0",
 ]
+
+[tool.coverage.run]
+omit = [
+    "src/main.py",
+]
