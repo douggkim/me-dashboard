@@ -137,9 +137,10 @@ def workout_silver(context: dg.AssetExecutionContext) -> pl.DataFrame:
     # Cast datetimes: format is often "%m/%d/%y %H:%M" such as "9/6/25 16:45"
     # We can try to specify a format string, or use the strptime with `%m/%d/%y %H:%M`
     combined_df = combined_df.with_columns([
-        pl.col("start_pst").str.strptime(pl.Datetime, "%m/%d/%y %H:%M", strict=False),
-        pl.col("end_pst").str.strptime(pl.Datetime, "%m/%d/%y %H:%M", strict=False),
+        pl.col("start_pst").str.strptime(pl.Datetime, "%Y-%m-%d %H:%M", strict=False),
+        pl.col("end_pst").str.strptime(pl.Datetime, "%Y-%m-%d %H:%M", strict=False),
     ])
+
 
     # Add activity_date partition col
     combined_df = combined_df.with_columns([pl.col("start_pst").dt.strftime("%Y-%m-%d").alias("activity_date")])
