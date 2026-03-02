@@ -23,6 +23,8 @@ services:
       context: .
     env_file:
       - .env
+    environment:
+      - POLARS_MAX_THREADS=2
     ports:
       - "3000:3000"
     volumes:
