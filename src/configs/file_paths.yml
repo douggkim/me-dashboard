@@ -3,6 +3,9 @@ paths:
     raw_play_history:
       local: "./data/testing/raw/spotify_play_history"
       prod: ""
+    artist_silver:
+      local: "s3://me-dashboard/silver/entertainment/spotify/spotify_artist_genre_mapping_silver"
+      prod: "s3://me-dashboard-doug/silver/entertainment/spotify/spotify_artist_genre_mapping_silver"
   location:
     bronze:
       local: "./data/testing/bronze/location"

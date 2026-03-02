@@ -5,7 +5,7 @@ import os
 import dagster as dg
 
 import src.validation.asset_checks as asset_checks_module
-from src.assets.entertainment import playstation, spotify_play_history
+from src.assets.entertainment import playstation, spotify_artist_genre_mappings, spotify_play_history
 from src.assets.health import health_assets
 from src.assets.location import movement_data
 from src.assets.screen_time import screen_time_assets
@@ -25,6 +25,7 @@ defs = dg.Definitions(
     assets=dg.load_assets_from_modules([
         movement_data,
         playstation,
+        spotify_artist_genre_mappings,
         spotify_play_history,
         github,
         screen_time_assets,
