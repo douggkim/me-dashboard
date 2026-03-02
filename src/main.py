@@ -68,5 +68,7 @@ defs = dg.Definitions(
     schedules=[weekly_delta_maintenance_schedule],
     sensors=[email_failure_sensor],
     asset_checks=dg.load_asset_checks_from_package_module(asset_checks_module),
-    executor=dg.multi_or_in_process_executor.configured({"max_concurrent": 4}),
+    executor=dg.multi_or_in_process_executor.configured(
+        {"multiprocess": {"max_concurrent": 4}}
+    ),
 )
