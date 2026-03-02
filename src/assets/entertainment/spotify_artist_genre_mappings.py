@@ -116,7 +116,7 @@ def spotify_artist_genre_mapping_silver(
                 "start_date_scd": pl.Date,
                 "end_date_scd": pl.Date,
             }
-        )
+        ).rechunk()
 
     incoming_df = _parse_artist_data(spotify_artist_genre_mapping_bronze)
 
@@ -138,7 +138,7 @@ def spotify_artist_genre_mapping_silver(
     updates_df = _apply_scd2_logic(incoming_df, existing_df, current_date)
 
     context.log.info(f"Processed SCD logic. Total operations pushed to Delta: {updates_df.height}")
-    return updates_df
+    return updates_df.rechunk()
 
 
 def _extract_unique_artist_ids(play_history: list[dict]) -> list[str]:
@@ -313,4 +313,4 @@ def _apply_scd2_logic(
         end_date_scd=pl.lit(datetime.date(9999, 12, 31), dtype=pl.Date),
     )
 
-    return pl.concat([closed_out_records, new_records, new_version_records], how="diagonal_relaxed")
+    return pl.concat([closed_out_records, new_records, new_version_records], how="diagonal_relaxed").rechunk()
