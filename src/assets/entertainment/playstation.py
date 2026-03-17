@@ -11,7 +11,7 @@ from src.resources.psn_resource import PSNResource
 
 @dg.asset(
     name="psn_profile_bronze",
-    key_prefix=["entertainment", "PSN"],
+    key_prefix=["bronze", "entertainment", "PSN"],
     io_manager_key="io_manager_json_txt",
     description="Raw Json files retrieved from requesting PSN Profile API",
     group_name="entertainment",
@@ -40,7 +40,7 @@ def psn_profile_bronze(psn_resource: PSNResource) -> dict:
 
 @dg.asset(
     name="psn_title_stats_bronze",  # Changed name to match function name
-    key_prefix=["entertainment", "PSN"],
+    key_prefix=["bronze", "entertainment", "PSN"],
     io_manager_key="io_manager_json_txt",
     description="Raw Json files retrieved from requesting PSN User history API",
     group_name="entertainment",
@@ -70,7 +70,7 @@ def psn_title_stats_bronze(psn_resource: PSNResource) -> list[dict]:
 
 @dg.asset(
     name="psn_game_details_bronze",
-    key_prefix=["entertainment", "PSN"],
+    key_prefix=["bronze", "entertainment", "PSN"],
     io_manager_key="io_manager_json_txt",
     description="Raw Json files retrieved from requesting PSN Title Search API",
     group_name="entertainment",
@@ -111,6 +111,7 @@ def psn_game_details_bronze(psn_title_stats_bronze: list[dict], psn_resource: PS
         # adding title_id for ease of joining later
         # each game has a list of game ids,so wanted to keep a separate string column
         game_detail["title_id"] = title_id
+
         game_details.append(game_detail)
 
     return game_details
@@ -118,7 +119,7 @@ def psn_game_details_bronze(psn_title_stats_bronze: list[dict], psn_resource: PS
 
 @dg.asset(
     name="psn_game_play_history_silver",
-    key_prefix=["entertainment", "PSN"],
+    key_prefix=["silver", "entertainment", "PSN"],
     io_manager_key="io_manager_pl",
     description="PSN Game play history data processed into a tabular format while joining with game details",
     group_name="entertainment",
@@ -126,10 +127,10 @@ def psn_game_details_bronze(psn_title_stats_bronze: list[dict], psn_resource: PS
     tags={"domain": "entertainment", "source": "psn"},
     ins={
         "psn_game_details_bronze": dg.AssetIn(
-            key_prefix=["entertainment", "PSN"], input_manager_key="io_manager_json_txt"
+            key_prefix=["bronze", "entertainment", "PSN"], input_manager_key="io_manager_json_txt"
         ),
         "psn_title_stats_bronze": dg.AssetIn(
-            key_prefix=["entertainment", "PSN"], input_manager_key="io_manager_json_txt"
+            key_prefix=["bronze", "entertainment", "PSN"], input_manager_key="io_manager_json_txt"
         ),
     },
     metadata={"partition_cols": ["processed_date"], "primary_keys": ["processed_date", "play_history_id"]},
@@ -297,14 +298,16 @@ def psn_game_play_history_silver(
 
 @dg.asset(
     name="psn_profile_silver",
-    key_prefix=["entertainment", "PSN"],
+    key_prefix=["silver", "entertainment", "PSN"],
     io_manager_key="io_manager_pl",
     description="PSN Profile data processed into a tabular format",
     group_name="entertainment",
     kinds={"polars", "silver"},
     tags={"domain": "entertainment", "source": "psn"},
     ins={
-        "psn_profile_bronze": dg.AssetIn(key_prefix=["entertainment", "PSN"], input_manager_key="io_manager_json_txt"),
+        "psn_profile_bronze": dg.AssetIn(
+            key_prefix=["bronze", "entertainment", "PSN"], input_manager_key="io_manager_json_txt"
+        ),
     },
     metadata={"partition_cols": ["processed_date"], "primary_keys": ["processed_date", "profile_id"]},
     owners=["doug@randomplace.com"],

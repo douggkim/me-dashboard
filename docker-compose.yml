@@ -25,7 +25,7 @@ services:
       - "3000:3000"
     volumes:
       - ./:/app
-      - /app/.venv
+      - dagster_venv:/app/.venv
     labels:
       <<: *project-labels
   minio:
@@ -70,3 +70,5 @@ services:
       retries: 3
     labels:
       <<: *project-labels
+volumes:
+  dagster_venv:
